@@ -1,9 +1,10 @@
 'use client'
 
-import { useMemo } from 'react'
-import { AlertCircle } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { AlertCircle, Wallet } from 'lucide-react'
 import { Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
 
+import { AddWalletDialog } from '@/components/add-wallet-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -244,6 +245,8 @@ function PortfolioChartCard() {
 }
 
 function PageHeader() {
+  const [open, setOpen] = useState(false)
+
   return (
     <div className="flex items-center justify-between">
       <div>
@@ -252,7 +255,13 @@ function PageHeader() {
           Track and calculate your Bitcoin-based annuity payments
         </p>
       </div>
-      <Button>New Calculation</Button>
+      <div>
+        <Button onClick={() => setOpen(true)}>
+          <Wallet className="mr-2 h-4 w-4" />
+          Add Wallet
+        </Button>
+        <AddWalletDialog open={open} onOpenChange={setOpen} />
+      </div>
     </div>
   )
 }
