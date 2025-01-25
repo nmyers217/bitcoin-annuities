@@ -55,60 +55,58 @@ function BaseLineChart({
         color: "orange"
       }
     }}>
-      <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={data}>
-          <XAxis 
-            dataKey="date" 
-            interval="preserveStartEnd"
-            tickFormatter={(value) => {
-              const date = new Date(value)
-              return date.toLocaleDateString('en-US', { 
-                month: 'short',
-                year: 'numeric'
-              })
-            }}
-            padding={{ left: 30, right: 30 }}
-            tickMargin={15}
-            minTickGap={100}
-          />
-          <YAxis 
-            width={80}
-            tickFormatter={(value) => `${valuePrefix}${value.toLocaleString()}`}
-          />
-          <Tooltip 
-            formatter={(value: number) => [`${valuePrefix}${value.toLocaleString()}`, label]}
-            labelFormatter={(label) => {
-              const date = new Date(label)
-              return date.toLocaleDateString('en-US', { 
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric'
-              })
-            }}
-            contentStyle={{
-              backgroundColor: 'hsl(var(--background))',
-              border: '1px solid hsl(var(--border))',
-              borderRadius: '8px',
-              boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
-            }}
-            itemStyle={{
-              color: 'hsl(var(--foreground))',
-              fontWeight: 500
-            }}
-            labelStyle={{
-              color: 'hsl(var(--muted-foreground))',
-              fontWeight: 400
-            }}
-          />
-          <Line 
-            type="monotone" 
-            dataKey={dataKey}
-            stroke="orange"
-            dot={false}
-            strokeWidth={2}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+      <LineChart data={data}>
+        <XAxis 
+          dataKey="date" 
+          interval="preserveStartEnd"
+          tickFormatter={(value) => {
+            const date = new Date(value)
+            return date.toLocaleDateString('en-US', { 
+              month: 'short',
+              year: 'numeric'
+            })
+          }}
+          padding={{ left: 30, right: 30 }}
+          tickMargin={15}
+          minTickGap={100}
+        />
+        <YAxis 
+          width={80}
+          tickFormatter={(value) => `${valuePrefix}${value.toLocaleString()}`}
+        />
+        <Tooltip 
+          formatter={(value: number) => [`${valuePrefix}${value.toLocaleString()}`, label]}
+          labelFormatter={(label) => {
+            const date = new Date(label)
+            return date.toLocaleDateString('en-US', { 
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric'
+            })
+          }}
+          contentStyle={{
+            backgroundColor: 'hsl(var(--background))',
+            border: '1px solid hsl(var(--border))',
+            borderRadius: '8px',
+            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+          }}
+          itemStyle={{
+            color: 'hsl(var(--foreground))',
+            fontWeight: 500
+          }}
+          labelStyle={{
+            color: 'hsl(var(--muted-foreground))',
+            fontWeight: 400
+          }}
+        />
+        <Line 
+          type="monotone" 
+          dataKey={dataKey}
+          stroke="orange"
+          dot={false}
+          strokeWidth={2}
+        />
+      </LineChart>
     </ChartContainer>
   )
 }
@@ -147,13 +145,30 @@ function ChartCard({ title, description, children }: {
   )
 }
 
-// Main Page Component
-export default function TrackerPage() {
+function PriceChartCard() {
   const { data: priceData, isLoading, error, refetch } = useBitcoinPrice()
 
+  return (
+    <ChartCard 
+      title="Bitcoin Price History"
+      description="Historical BTC/USD price data"
+    >
+      {isLoading ? (
+        <LoadingState />
+      ) : error ? (
+        <ErrorState onRetry={refetch} />
+      ) : (
+        <PriceChart data={priceData ?? []} />
+      )}
+    </ChartCard>
+  )
+}
+
+function PortfolioChartCard() {
+  const { data: priceData, isLoading, error, refetch } = useBitcoinPrice()
+  
   const portfolioData = useMemo(() => {
     if (!priceData?.length) return []
-    
     return priceData.map((pricePoint, index) => {
       const btcAmount = 2.5 - (index * 0.05)
       return {
@@ -165,67 +180,64 @@ export default function TrackerPage() {
   }, [priceData])
 
   return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <ChartCard 
+        title="Portfolio Value in USD"
+        description="Projected value based on current parameters"
+      >
+        {isLoading ? (
+          <LoadingState />
+        ) : error ? (
+          <ErrorState onRetry={refetch} />
+        ) : (
+          <PortfolioChart 
+            data={portfolioData} 
+            dataKey="usdValue"
+            valuePrefix="$"
+          />
+        )}
+      </ChartCard>
+
+      <ChartCard 
+        title="Portfolio Value in BTC"
+        description="Bitcoin holdings over time"
+      >
+        {isLoading ? (
+          <LoadingState />
+        ) : error ? (
+          <ErrorState onRetry={refetch} />
+        ) : (
+          <PortfolioChart 
+            data={portfolioData} 
+            dataKey="btcValue"
+            valuePrefix="₿"
+          />
+        )}
+      </ChartCard>
+    </div>
+  )
+}
+
+function PageHeader() {
+  return (
+    <div className="flex justify-between items-center">
+      <div>
+        <h1 className="text-4xl font-bold">Bitcoin Annuity Tracker</h1>
+        <p className="text-muted-foreground">Track and calculate your Bitcoin-based annuity payments</p>
+      </div>
+      <Button>New Calculation</Button>
+    </div>
+  )
+}
+
+// Main Page Component
+export default function TrackerPage() {
+  return (
     <div className="container mx-auto p-6">
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-4xl font-bold">Bitcoin Annuity Tracker</h1>
-            <p className="text-muted-foreground">Track and calculate your Bitcoin-based annuity payments</p>
-          </div>
-          <Button>New Calculation</Button>
-        </div>
-
-        {/* Price Chart */}
-        <ChartCard 
-          title="Bitcoin Price History"
-          description="Historical BTC/USD price data"
-        >
-          {isLoading ? (
-            <LoadingState />
-          ) : error ? (
-            <ErrorState onRetry={refetch} />
-          ) : (
-            <PriceChart data={priceData ?? []} />
-          )}
-        </ChartCard>
-
-        {/* Portfolio Charts */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          <ChartCard 
-            title="Portfolio Value in USD"
-            description="Projected value based on current parameters"
-          >
-            {isLoading ? (
-              <LoadingState />
-            ) : error ? (
-              <ErrorState onRetry={refetch} />
-            ) : (
-              <PortfolioChart 
-                data={portfolioData} 
-                dataKey="usdValue"
-                valuePrefix="$"
-              />
-            )}
-          </ChartCard>
-
-          <ChartCard 
-            title="Portfolio Value in BTC"
-            description="Bitcoin holdings over time"
-          >
-            {isLoading ? (
-              <LoadingState />
-            ) : error ? (
-              <ErrorState onRetry={refetch} />
-            ) : (
-              <PortfolioChart 
-                data={portfolioData} 
-                dataKey="btcValue"
-                valuePrefix="₿"
-              />
-            )}
-          </ChartCard>
-        </div>
+        <PageHeader />
+        <PriceChartCard />
+        <PortfolioChartCard />
       </div>
     </div>
   )
