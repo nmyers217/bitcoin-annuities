@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { AlertCircle, Wallet } from 'lucide-react'
 import { Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
 
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/card'
 import { ChartContainer } from '@/components/ui/chart'
 import { Skeleton } from '@/components/ui/skeleton'
+import { usePortfolio } from '@/contexts/portfolio-context'
 import { useBitcoinPrice } from '@/hooks/use-bitcoin-price'
 
 // Shared Components
@@ -199,19 +200,8 @@ function PriceChartCard() {
 }
 
 function PortfolioChartCard() {
-  const { data: priceData, isLoading, error, refetch } = useBitcoinPrice()
-
-  const portfolioData = useMemo(() => {
-    if (!priceData?.length) return []
-    return priceData.map((pricePoint, index) => {
-      const btcAmount = 2.5 - index * 0.05
-      return {
-        date: pricePoint.date,
-        btcValue: btcAmount,
-        usdValue: btcAmount * pricePoint.price,
-      }
-    })
-  }, [priceData])
+  const { isLoading, error, refetch } = useBitcoinPrice()
+  const { calculatePortfolioData } = usePortfolio()
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -221,7 +211,7 @@ function PortfolioChartCard() {
       >
         <AsyncChart isLoading={isLoading} error={error} onRetry={refetch}>
           <PortfolioChart
-            data={portfolioData}
+            data={calculatePortfolioData}
             dataKey="usdValue"
             valuePrefix="$"
           />
@@ -234,7 +224,7 @@ function PortfolioChartCard() {
       >
         <AsyncChart isLoading={isLoading} error={error} onRetry={refetch}>
           <PortfolioChart
-            data={portfolioData}
+            data={calculatePortfolioData}
             dataKey="btcValue"
             valuePrefix="₿"
           />

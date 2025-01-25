@@ -1,22 +1,14 @@
-import { createContext, useContext, useEffect, useReducer } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+} from 'react'
 
-interface VirtualWallet {
-  id: string
-  type: 'virtual'
-  createdAt: string
-  principal: number
-  principalCurrency: 'BTC' | 'USD'
-  amortizationRate: number
-  termMonths: number
-}
-
-interface RealWallet {
-  id: string
-  type: 'real'
-  publicKey: string
-}
-
-type Wallet = VirtualWallet | RealWallet
+import { useBitcoinPrice } from '@/hooks/use-bitcoin-price'
+import { calculatePortfolioValue } from '@/lib/portfolio'
+import type { Wallet } from '@/lib/portfolio'
 
 type PortfolioState = {
   wallets: Wallet[]
@@ -85,5 +77,16 @@ export function usePortfolio() {
   if (!context) {
     throw new Error('usePortfolio must be used within a PortfolioProvider')
   }
-  return context
+
+  const { data: priceData } = useBitcoinPrice()
+
+  const calculatePortfolioData = useMemo(() => {
+    if (!priceData?.length) return []
+    return calculatePortfolioValue(context.state.wallets, priceData)
+  }, [priceData, context.state.wallets])
+
+  return {
+    ...context,
+    calculatePortfolioData,
+  }
 }
