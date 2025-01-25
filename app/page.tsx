@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button"
 import { ChartContainer } from "@/components/ui/chart"
 import { Line, LineChart, XAxis, YAxis, Tooltip } from "recharts"
 import { useState } from "react"
+import { useBitcoinPrice } from '@/hooks/use-bitcoin-price'
+import { Skeleton } from "@/components/ui/skeleton"
+import { AlertCircle } from "lucide-react"
 
 // Types for our data
 type DataPoint = {
@@ -43,6 +46,8 @@ export default function TrackerPage() {
     },
   ])
 
+  const { data: priceData, isLoading, error, refetch } = useBitcoinPrice()
+
   return (
     <div className="container mx-auto p-6">
       <div className="space-y-6">
@@ -54,6 +59,93 @@ export default function TrackerPage() {
           </div>
           <Button>New Calculation</Button>
         </div>
+
+        {/* Price Chart */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Bitcoin Price History</CardTitle>
+            <CardDescription>Historical BTC/USD price data</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-[300px] w-full" />
+              </div>
+            ) : error ? (
+              <div className="flex h-[300px] items-center justify-center">
+                <div className="flex flex-col items-center gap-2 text-destructive">
+                  <AlertCircle className="h-8 w-8" />
+                  <p>Failed to load price data</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => refetch()}
+                  >
+                    Try Again
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <ChartContainer config={{
+                price: {
+                  label: "Price",
+                  color: "orange"
+                }
+              }}>
+                <LineChart data={priceData}>
+                  <XAxis 
+                    dataKey="date" 
+                    interval={30}
+                    tickFormatter={(value) => {
+                      const date = new Date(value)
+                      return date.toLocaleDateString('en-US', { 
+                        month: 'short',
+                        year: 'numeric'
+                      })
+                    }}
+                    minTickGap={50}
+                  />
+                  <YAxis 
+                    width={80}
+                    tickFormatter={(value) => `$${value.toLocaleString()}`}
+                  />
+                  <Tooltip 
+                    formatter={(value: number) => [`$${value.toLocaleString()}`, 'Price']}
+                    labelFormatter={(label) => {
+                      const date = new Date(label)
+                      return date.toLocaleDateString('en-US', { 
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })
+                    }}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+                    }}
+                    itemStyle={{
+                      color: 'hsl(var(--foreground))',
+                      fontWeight: 500
+                    }}
+                    labelStyle={{
+                      color: 'hsl(var(--muted-foreground))',
+                      fontWeight: 400
+                    }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="price" 
+                    stroke="orange"
+                    dot={false}
+                    strokeWidth={2}
+                  />
+                </LineChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Main Grid Layout */}
         <div className="grid gap-6 lg:grid-cols-2">
