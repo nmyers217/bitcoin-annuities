@@ -145,6 +145,22 @@ function ChartCard({ title, description, children }: {
   )
 }
 
+function AsyncChart({ 
+  isLoading, 
+  error, 
+  onRetry, 
+  children 
+}: { 
+  isLoading: boolean;
+  error: Error | null;
+  onRetry: () => void;
+  children: React.ReactNode;
+}) {
+  if (isLoading) return <LoadingState />
+  if (error) return <ErrorState onRetry={onRetry} />
+  return children
+}
+
 function PriceChartCard() {
   const { data: priceData, isLoading, error, refetch } = useBitcoinPrice()
 
@@ -153,13 +169,9 @@ function PriceChartCard() {
       title="Bitcoin Price History"
       description="Historical BTC/USD price data"
     >
-      {isLoading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState onRetry={refetch} />
-      ) : (
+      <AsyncChart isLoading={isLoading} error={error} onRetry={refetch}>
         <PriceChart data={priceData ?? []} />
-      )}
+      </AsyncChart>
     </ChartCard>
   )
 }
@@ -185,34 +197,26 @@ function PortfolioChartCard() {
         title="Portfolio Value in USD"
         description="Projected value based on current parameters"
       >
-        {isLoading ? (
-          <LoadingState />
-        ) : error ? (
-          <ErrorState onRetry={refetch} />
-        ) : (
+        <AsyncChart isLoading={isLoading} error={error} onRetry={refetch}>
           <PortfolioChart 
             data={portfolioData} 
             dataKey="usdValue"
             valuePrefix="$"
           />
-        )}
+        </AsyncChart>
       </ChartCard>
 
       <ChartCard 
         title="Portfolio Value in BTC"
         description="Bitcoin holdings over time"
       >
-        {isLoading ? (
-          <LoadingState />
-        ) : error ? (
-          <ErrorState onRetry={refetch} />
-        ) : (
+        <AsyncChart isLoading={isLoading} error={error} onRetry={refetch}>
           <PortfolioChart 
             data={portfolioData} 
             dataKey="btcValue"
             valuePrefix="₿"
           />
-        )}
+        </AsyncChart>
       </ChartCard>
     </div>
   )
