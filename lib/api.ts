@@ -9,4 +9,4 @@ export async function fetchBitcoinPrice(): Promise<PriceData[]> {
     throw new Error('Failed to fetch Bitcoin price data')
   }
   return response.json()
-} 
+}

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+
 import { fetchBitcoinPrice, type PriceData } from '@/lib/api'
 
 export function useBitcoinPrice() {
@@ -6,4 +7,4 @@ export function useBitcoinPrice() {
     queryKey: ['bitcoin-price'],
     queryFn: fetchBitcoinPrice,
   })
-} 
+}
