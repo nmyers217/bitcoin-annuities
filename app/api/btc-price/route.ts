@@ -1,26 +1,41 @@
+import { unstable_cache } from 'next/cache'
 import { NextResponse } from 'next/server'
 
-// Cache the response for 5 minutes
-export const revalidate = 300
+async function fetchBitcoinPriceData() {
+  // Returns daily price data since 2009
+  const response = await fetch(
+    'https://api.blockchain.info/charts/market-price?timespan=all&sampled=true&format=json'
+  )
+
+  const data = await response.json()
+
+  if (!data.values) {
+    return data
+  }
+
+  return data.values.map(({ x, y }: { x: number; y: number }) => ({
+    date: new Date(x * 1000).toLocaleDateString('en-US'),
+    price: y,
+  }))
+}
+
+const getCachedBitcoinPrice = unstable_cache(
+  async () => {
+    return await fetchBitcoinPriceData()
+  },
+  ['bitcoin-price'],
+  {
+    revalidate: 43200, // 12 hours
+    tags: ['bitcoin-price'],
+  }
+)
 
 export async function GET() {
   try {
-    // Using CoinGecko's free API
-    const response = await fetch(
-      'https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=365&interval=daily',
-      { next: { revalidate } }
-    )
-
-    const data = await response.json()
-
-    // Transform the data into our format
-    const prices = data.prices.map(([timestamp, price]: [number, number]) => ({
-      date: new Date(timestamp).toLocaleDateString('en-US'),
-      price: price,
-    }))
-
+    const prices = await getCachedBitcoinPrice()
     return NextResponse.json(prices)
   } catch (error) {
+    console.error(error)
     return NextResponse.json(
       { error: 'Failed to fetch BTC price' },
       { status: 500 }
