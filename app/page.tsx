@@ -6,6 +6,7 @@ import { Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
 
 import { AddWalletDialog } from '@/components/add-wallet-dialog'
 import { CashFlowReport } from '@/components/cash-flow-report'
+import TradingViewWidget from '@/components/trading-view-widget'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -186,17 +187,10 @@ function AsyncChart({
 }
 
 function PriceChartCard() {
-  const { data: priceData, isLoading, error, refetch } = useBitcoinPrice()
-
   return (
-    <ChartCard
-      title="Bitcoin Price History"
-      description="Historical BTC/USD price data"
-    >
-      <AsyncChart isLoading={isLoading} error={error} onRetry={refetch}>
-        <PriceChart data={priceData ?? []} />
-      </AsyncChart>
-    </ChartCard>
+    <Card className="h-[500px]">
+      <TradingViewWidget />
+    </Card>
   )
 }
 
@@ -241,7 +235,7 @@ function PageHeader() {
   const [reportOpen, setReportOpen] = useState(false)
 
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex flex-wrap items-center justify-between">
       <div>
         <h1 className="text-4xl font-bold">Bitcoin Annuity Tracker</h1>
         <p className="text-muted-foreground">
