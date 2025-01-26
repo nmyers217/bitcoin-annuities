@@ -132,9 +132,9 @@ export function findPriceData(
   const result = priceData.find((p) =>
     isSameDay(parsePortfolioDate(p.date), date)
   )
-  if (!result) {
-    console.warn(`No price data found for date ${date}`)
-  }
+  // if (!result) {
+  //   console.warn(`No price data found for date ${date}`)
+  // }
   return result ?? null
 }
 

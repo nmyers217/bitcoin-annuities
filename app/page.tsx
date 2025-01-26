@@ -5,6 +5,7 @@ import { AlertCircle, FileText, Wallet } from 'lucide-react'
 import { Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
 
 import { AddAnnuityDialog } from '@/components/add-annuity-dialog'
+import { AnnuitiesCard } from '@/components/annuities-card'
 import { CashFlowReport } from '@/components/cash-flow-report'
 import TradingViewWidget from '@/components/trading-view-widget'
 import { Button } from '@/components/ui/button'
@@ -207,8 +208,25 @@ function PortfolioChartCard() {
     btcValue,
   }))
 
+  // Aggregate outflows by month
+  const monthlyIncomeData = state.cashFlows
+    .filter((cf) => cf.type === 'outflow')
+    .reduce((acc: Record<string, number>, cf) => {
+      const month = cf.date.substring(0, 7) // Get YYYY-MM
+      acc[month] = (acc[month] ?? 0) + cf.usdAmount
+      return acc
+    }, {})
+
+  // Convert to array and format for chart
+  const monthlyIncomeChartData = Object.entries(monthlyIncomeData)
+    .map(([month, total]) => ({
+      date: month + '-01', // Convert YYYY-MM to YYYY-MM-DD
+      usdValue: total,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid gap-6 lg:grid-cols-3">
       <ChartCard
         title="Portfolio Value in USD"
         description="Projected value based on current parameters"
@@ -224,6 +242,16 @@ function PortfolioChartCard() {
       >
         <AsyncChart isLoading={isLoading} error={error} onRetry={refetch}>
           <PortfolioChart data={btcData} dataKey="btcValue" valuePrefix="₿" />
+        </AsyncChart>
+      </ChartCard>
+
+      <ChartCard title="Monthly Income" description="Monthly USD payments">
+        <AsyncChart isLoading={isLoading} error={error} onRetry={refetch}>
+          <PortfolioChart
+            data={monthlyIncomeChartData}
+            dataKey="usdValue"
+            valuePrefix="$"
+          />
         </AsyncChart>
       </ChartCard>
     </div>
@@ -269,6 +297,7 @@ export default function TrackerPage() {
         <PageHeader />
         <PriceChartCard />
         <PortfolioChartCard />
+        <AnnuitiesCard />
       </div>
     </div>
   )
