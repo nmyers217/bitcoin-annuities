@@ -1,7 +1,7 @@
 'use client'
 
+import { useEffect } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { subYears } from 'date-fns'
 import { useForm } from 'react-hook-form'
 import * as z from 'zod'
 
@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { usePortfolio } from '@/contexts/portfolio-context'
+import { type Annuity } from '@/lib/portfolio'
 
 const annuitySchema = z.object({
   createdAt: z.string(),
@@ -43,32 +44,49 @@ const annuitySchema = z.object({
 interface AddAnnuityDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  editAnnuity?: Annuity // Optional annuity for edit mode
 }
 
 export function AddAnnuityDialog({
   open,
   onOpenChange,
+  editAnnuity,
 }: AddAnnuityDialogProps) {
   const { dispatch } = usePortfolio()
 
   const form = useForm<z.infer<typeof annuitySchema>>({
     resolver: zodResolver(annuitySchema),
     defaultValues: {
-      createdAt: subYears(new Date(), 1).toISOString().split('T')[0],
-      principal: 0.25,
-      principalCurrency: 'BTC',
-      amortizationRate: 0.6,
-      termMonths: 36,
+      createdAt: new Date().toISOString().split('T')[0],
+      principal: 100000,
+      principalCurrency: 'USD',
+      amortizationRate: 0.12,
+      termMonths: 60,
     },
   })
 
+  useEffect(() => {
+    if (editAnnuity) {
+      form.reset({
+        createdAt: editAnnuity.createdAt.split('T')[0],
+        principal: editAnnuity.principal,
+        principalCurrency: editAnnuity.principalCurrency,
+        amortizationRate: editAnnuity.amortizationRate,
+        termMonths: editAnnuity.termMonths,
+      })
+    }
+  }, [editAnnuity, form])
+
   const onSubmit = form.handleSubmit((values) => {
     const annuity = {
-      id: crypto.randomUUID(),
+      id: editAnnuity?.id ?? crypto.randomUUID(),
       ...values,
     }
 
-    dispatch({ type: 'ADD_ANNUITY', annuity })
+    dispatch({
+      type: editAnnuity ? 'UPDATE_ANNUITY' : 'ADD_ANNUITY',
+      annuity,
+    })
     form.reset()
     onOpenChange(false)
   })
@@ -77,9 +95,10 @@ export function AddAnnuityDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Annuity</DialogTitle>
+          <DialogTitle>{editAnnuity ? 'Edit' : 'Add'} Annuity</DialogTitle>
           <DialogDescription>
-            Enter the details of your Bitcoin annuity.
+            {editAnnuity ? 'Modify' : 'Enter'} the details of your Bitcoin
+            annuity.
           </DialogDescription>
         </DialogHeader>
 
@@ -199,7 +218,9 @@ export function AddAnnuityDialog({
               >
                 Cancel
               </Button>
-              <Button type="submit">Add Annuity</Button>
+              <Button type="submit">
+                {editAnnuity ? 'Save Changes' : 'Add Annuity'}
+              </Button>
             </div>
           </form>
         </Form>
