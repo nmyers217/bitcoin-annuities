@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useReducer,
-} from 'react'
+import { createContext, useContext, useEffect, useReducer } from 'react'
 
 import { useBitcoinPrice } from '@/hooks/use-bitcoin-price'
 import {

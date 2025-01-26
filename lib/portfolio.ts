@@ -1,10 +1,9 @@
-import { addMonths, isSameDay } from 'date-fns'
+import { addMonths, isSameDay, parseISO, startOfMonth } from 'date-fns'
 
 import { type PriceData } from '@/lib/api'
 
-export interface VirtualWallet {
+export type Annuity = {
   id: string
-  type: 'virtual'
   createdAt: string
   principal: number
   principalCurrency: 'BTC' | 'USD'
@@ -12,17 +11,9 @@ export interface VirtualWallet {
   termMonths: number
 }
 
-export interface RealWallet {
-  id: string
-  type: 'real'
-  publicKey: string
-}
-
-export type Wallet = VirtualWallet | RealWallet
-
 export interface CashFlow {
   date: string
-  walletId: string
+  annuityId: string
   type: 'inflow' | 'outflow'
   usdAmount: number
   btcAmount: number
@@ -35,32 +26,23 @@ export interface PortfolioValuation {
 }
 
 export type PortfolioState = {
+  // First the price data is fetched from the API
   priceData: PriceData[]
-  wallets: Wallet[]
+  // Then the annuities are added
+  annuities: Annuity[]
+  // Then the cash flows are calculated
   cashFlows: CashFlow[]
+  // Then the valuations are calculated
   valuations: PortfolioValuation[]
 }
 
 export type PortfolioAction =
   | { type: 'INITIALIZE'; priceData: PriceData[] }
-  | { type: 'ADD_WALLET'; wallet: Wallet }
-  | { type: 'REMOVE_WALLET'; id: string }
-  | { type: 'UPDATE_WALLET'; wallet: Wallet }
+  | { type: 'ADD_ANNUITY'; annuity: Annuity }
+  | { type: 'REMOVE_ANNUITY'; id: string }
+  | { type: 'UPDATE_ANNUITY'; annuity: Annuity }
   | { type: 'RECALCULATE' }
   | { type: 'RESTORE'; state: PortfolioState }
-
-export function recalculatePortfolio(state: PortfolioState): PortfolioState {
-  const cashFlows = state.wallets
-    .flatMap((wallet) => calculateWalletCashFlows(wallet, state.priceData))
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-  const valuations = state.wallets
-    .flatMap((wallet) =>
-      calculateWalletValuations(wallet, state.priceData, cashFlows)
-    )
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-
-  return { ...state, cashFlows, valuations }
-}
 
 export function portfolioReducer(
   state: PortfolioState,
@@ -68,27 +50,29 @@ export function portfolioReducer(
 ): PortfolioState {
   switch (action.type) {
     case 'INITIALIZE':
-      return {
-        ...state,
-        priceData: action.priceData,
-      }
-    case 'ADD_WALLET':
       return recalculatePortfolio({
         ...state,
-        wallets: [...state.wallets, action.wallet],
+        priceData: action.priceData,
       })
-    case 'REMOVE_WALLET':
-      return {
+    case 'ADD_ANNUITY':
+      return recalculatePortfolio({
         ...state,
-        wallets: state.wallets.filter((wallet) => wallet.id !== action.id),
-      }
-    case 'UPDATE_WALLET':
-      return {
+        annuities: [...state.annuities, action.annuity],
+      })
+    case 'REMOVE_ANNUITY':
+      return recalculatePortfolio({
         ...state,
-        wallets: state.wallets.map((wallet) =>
-          wallet.id === action.wallet.id ? action.wallet : wallet
+        annuities: state.annuities.filter(
+          (annuity) => annuity.id !== action.id
         ),
-      }
+      })
+    case 'UPDATE_ANNUITY':
+      return recalculatePortfolio({
+        ...state,
+        annuities: state.annuities.map((annuity) =>
+          annuity.id === action.annuity.id ? action.annuity : annuity
+        ),
+      })
     case 'RECALCULATE':
       return recalculatePortfolio(state)
     case 'RESTORE':
@@ -98,117 +82,145 @@ export function portfolioReducer(
   }
 }
 
-function calculateWalletCashFlows(
-  wallet: Wallet,
+export function recalculatePortfolio(state: PortfolioState): PortfolioState {
+  const cashFlows = state.annuities
+    .flatMap((annuity) => calculateCashFlows(annuity, state.priceData))
+    .sort(
+      (a, b) =>
+        parsePortfolioDate(a.date).getTime() -
+        parsePortfolioDate(b.date).getTime()
+    )
+  const valuations = state.annuities
+    .flatMap((annuity) =>
+      calculateValuations(annuity, state.priceData, cashFlows)
+    )
+    .sort(
+      (a, b) =>
+        parsePortfolioDate(a.date).getTime() -
+        parsePortfolioDate(b.date).getTime()
+    )
+
+  return { ...state, cashFlows, valuations }
+}
+
+export function parsePortfolioDate(date: string | Date): Date {
+  return typeof date === 'string' ? parseISO(date) : date
+}
+
+export function* iterateMonths(
+  startDate: Date,
+  numberOfMonths: number
+): Generator<Date> {
+  for (let i = 1; i <= numberOfMonths; i++) {
+    yield startOfMonth(addMonths(startDate, i))
+  }
+}
+
+export function findPriceData(
+  date: Date,
+  priceData: PriceData[]
+): PriceData | null {
+  const result = priceData.find((p) =>
+    isSameDay(parsePortfolioDate(p.date), date)
+  )
+  if (!result) {
+    console.warn(`No price data found for date ${date}`)
+  }
+  return result ?? null
+}
+
+export function calculateInflow(
+  annuity: Annuity,
+  priceData: PriceData[]
+): CashFlow | null {
+  const creationDate = parsePortfolioDate(annuity.createdAt)
+  const creationPrice = findPriceData(creationDate, priceData)
+  if (!creationPrice) return null
+
+  return {
+    usdAmount:
+      annuity.principalCurrency === 'USD'
+        ? annuity.principal
+        : annuity.principal * creationPrice.price,
+    btcAmount:
+      annuity.principalCurrency === 'BTC'
+        ? annuity.principal
+        : annuity.principal / creationPrice.price,
+    date: creationDate.toISOString().split('T')[0],
+    annuityId: annuity.id,
+    type: 'inflow',
+  }
+}
+
+export function calculateOutflows(
+  annuity: Annuity,
   priceData: PriceData[]
 ): CashFlow[] {
-  if (wallet.type === 'real') {
-    // TODO: we need to figure out how to get the transactions for a real wallet from a blockhain explorer API
-    return []
-  }
+  const monthlyRate = annuity.amortizationRate / 12
+  const creationDate = parsePortfolioDate(annuity.createdAt)
+  const creationPrice = findPriceData(creationDate, priceData)
+  if (!creationPrice) return []
 
-  const cashFlows: CashFlow[] = []
-  const walletCreationDate = new Date(wallet.createdAt)
-  const walletCreationDatePrice = priceData.find((p) =>
-    isSameDay(new Date(p.date), walletCreationDate)
-  )
+  const principalUSD =
+    annuity.principalCurrency === 'USD'
+      ? annuity.principal
+      : annuity.principal * creationPrice.price
 
-  if (!walletCreationDatePrice) {
-    console.warn(
-      `No price data found for wallet creation date ${walletCreationDate}`
-    )
-    return cashFlows
-  }
+  const monthlyPaymentUSD =
+    principalUSD *
+    (monthlyRate / (1 - (1 + monthlyRate) ** -annuity.termMonths))
 
-  const bitcoinPrice = walletCreationDatePrice.price
-  const usdAmount =
-    wallet.principalCurrency === 'USD'
-      ? wallet.principal
-      : wallet.principal * bitcoinPrice
-  const btcAmount =
-    wallet.principalCurrency === 'BTC'
-      ? wallet.principal
-      : wallet.principal / bitcoinPrice
-  cashFlows.push({
-    date: walletCreationDate.toISOString(),
-    walletId: wallet.id,
-    type: 'inflow',
-    usdAmount,
-    btcAmount,
-  })
+  const outflows: CashFlow[] = []
 
-  const monthlyRate = wallet.amortizationRate / 12
-  const monthlyPayment =
-    wallet.principal *
-    (monthlyRate / (1 - (1 + monthlyRate) ** -wallet.termMonths))
+  for (const amortizationDate of iterateMonths(
+    creationDate,
+    annuity.termMonths
+  )) {
+    const amortizationDatePrice = findPriceData(amortizationDate, priceData)
+    if (!amortizationDatePrice) continue
 
-  for (let i = 1; i < wallet.termMonths; i++) {
-    const amortizationDate = addMonths(walletCreationDate, i)
-    const amortizationDatePrice = priceData.find((p) =>
-      isSameDay(new Date(p.date), amortizationDate)
-    )
-
-    if (!amortizationDatePrice) {
-      console.warn(
-        `No price data found for amortization date ${amortizationDate}`
-      )
-      continue
-    }
-
-    const bitcoinPrice = amortizationDatePrice.price
-    const usdAmount =
-      wallet.principalCurrency === 'USD'
-        ? monthlyPayment
-        : monthlyPayment * bitcoinPrice
-    const btcAmount =
-      wallet.principalCurrency === 'BTC'
-        ? monthlyPayment
-        : monthlyPayment / bitcoinPrice
-    cashFlows.push({
-      date: amortizationDate.toISOString(),
-      walletId: wallet.id,
+    outflows.push({
+      date: amortizationDate.toISOString().split('T')[0],
+      annuityId: annuity.id,
       type: 'outflow',
-      usdAmount,
-      btcAmount,
+      usdAmount: monthlyPaymentUSD,
+      btcAmount: monthlyPaymentUSD / amortizationDatePrice.price,
     })
   }
 
-  return cashFlows
+  return outflows
 }
 
-function calculateWalletValuations(
-  wallet: Wallet,
+function calculateCashFlows(
+  annuity: Annuity,
+  priceData: PriceData[]
+): CashFlow[] {
+  const inflow = calculateInflow(annuity, priceData)
+  const outflows = calculateOutflows(annuity, priceData)
+  return [inflow, ...outflows].filter((flow) => flow !== null)
+}
+
+function calculateValuations(
+  annuity: Annuity,
   priceData: PriceData[],
   cashFlows: CashFlow[]
 ): PortfolioValuation[] {
   const valuations: PortfolioValuation[] = []
-
   let currentBalance = 0
 
-  for (const cashFlow of cashFlows) {
-    if (cashFlow.walletId !== wallet.id) {
-      continue
-    }
+  for (const cashFlow of cashFlows.filter(
+    (cf) => cf.annuityId === annuity.id
+  )) {
+    currentBalance +=
+      cashFlow.type === 'inflow' ? cashFlow.btcAmount : -cashFlow.btcAmount
 
-    currentBalance =
-      cashFlow.type === 'inflow'
-        ? currentBalance + cashFlow.btcAmount
-        : currentBalance - cashFlow.btcAmount
-
-    const flowDate = new Date(cashFlow.date)
-    const flowDatePrice = priceData.find((p) =>
-      isSameDay(new Date(p.date), flowDate)
-    )
-
-    if (!flowDatePrice) {
-      console.warn(`No price data found for flow date ${flowDate}`)
-      continue
-    }
+    const price = findPriceData(parsePortfolioDate(cashFlow.date), priceData)
+    if (!price) continue
 
     valuations.push({
-      date: flowDate.toISOString(),
+      date: cashFlow.date,
       btcValue: currentBalance,
-      usdValue: currentBalance * flowDatePrice.price,
+      usdValue: currentBalance * price.price,
     })
   }
 
