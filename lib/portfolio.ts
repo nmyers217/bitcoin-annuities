@@ -73,10 +73,10 @@ export function portfolioReducer(
         priceData: action.priceData,
       }
     case 'ADD_WALLET':
-      return {
+      return recalculatePortfolio({
         ...state,
         wallets: [...state.wallets, action.wallet],
-      }
+      })
     case 'REMOVE_WALLET':
       return {
         ...state,

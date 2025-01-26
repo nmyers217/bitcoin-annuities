@@ -82,7 +82,7 @@ function VirtualWalletForm() {
       ...values,
     }
 
-    dispatch({ type: 'ADD_WALLET', wallet, priceData })
+    dispatch({ type: 'ADD_WALLET', wallet })
     form.reset()
   })
 
@@ -231,7 +231,7 @@ function RealWalletForm() {
       type: 'real',
       ...values,
     }
-    dispatch({ type: 'ADD_WALLET', wallet, priceData })
+    dispatch({ type: 'ADD_WALLET', wallet })
   })
 
   return (

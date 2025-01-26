@@ -70,7 +70,6 @@ export function usePortfolio() {
 
   useEffect(() => {
     context.dispatch({ type: 'INITIALIZE', priceData: priceData ?? [] })
-    context.dispatch({ type: 'RECALCULATE' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [priceData])
 

@@ -15,10 +15,7 @@ export async function GET() {
 
     // Transform the data into our format
     const prices = data.prices.map(([timestamp, price]: [number, number]) => ({
-      date: new Date(timestamp).toLocaleDateString('en-US', {
-        month: 'short',
-        year: 'numeric',
-      }),
+      date: new Date(timestamp).toLocaleDateString('en-US'),
       price: price,
     }))
 
