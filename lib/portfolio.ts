@@ -1,10 +1,6 @@
-import { type PriceData } from '@/lib/api'
+import { addMonths, isSameDay } from 'date-fns'
 
-export interface PortfolioDataPoint {
-  date: string
-  btcValue: number
-  usdValue: number
-}
+import { type PriceData } from '@/lib/api'
 
 export interface VirtualWallet {
   id: string
@@ -24,54 +20,197 @@ export interface RealWallet {
 
 export type Wallet = VirtualWallet | RealWallet
 
-export function calculatePortfolioValue(
-  wallets: Wallet[],
+export interface CashFlow {
+  date: string
+  walletId: string
+  type: 'inflow' | 'outflow'
+  usdAmount: number
+  btcAmount: number
+}
+
+export interface PortfolioValuation {
+  date: string
+  btcValue: number
+  usdValue: number
+}
+
+export type PortfolioState = {
   priceData: PriceData[]
-): PortfolioDataPoint[] {
-  if (!priceData.length) return []
+  wallets: Wallet[]
+  cashFlows: CashFlow[]
+  valuations: PortfolioValuation[]
+}
 
-  return priceData.map((pricePoint) => {
-    const date = new Date(pricePoint.date)
-    let totalBtc = 0
+export type PortfolioAction =
+  | { type: 'INITIALIZE'; priceData: PriceData[] }
+  | { type: 'ADD_WALLET'; wallet: Wallet }
+  | { type: 'REMOVE_WALLET'; id: string }
+  | { type: 'UPDATE_WALLET'; wallet: Wallet }
+  | { type: 'RECALCULATE' }
+  | { type: 'RESTORE'; state: PortfolioState }
 
-    for (const wallet of wallets) {
-      if (wallet.type === 'virtual') {
-        const walletStartDate = new Date(wallet.createdAt)
+export function recalculatePortfolio(state: PortfolioState): PortfolioState {
+  const cashFlows = state.wallets
+    .flatMap((wallet) => calculateWalletCashFlows(wallet, state.priceData))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  const valuations = state.wallets
+    .flatMap((wallet) =>
+      calculateWalletValuations(wallet, state.priceData, cashFlows)
+    )
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
-        if (date < walletStartDate) continue
+  return { ...state, cashFlows, valuations }
+}
 
-        const monthsSinceStart =
-          (date.getFullYear() - walletStartDate.getFullYear()) * 12 +
-          (date.getMonth() - walletStartDate.getMonth())
-
-        const principalBtc =
-          wallet.principalCurrency === 'USD'
-            ? wallet.principal / priceData[0].price
-            : wallet.principal
-
-        const monthlyRate = wallet.amortizationRate / 12
-        const monthlyPayment =
-          (principalBtc *
-            (monthlyRate * Math.pow(1 + monthlyRate, wallet.termMonths))) /
-          (Math.pow(1 + monthlyRate, wallet.termMonths) - 1)
-
-        const remainingBalance =
-          monthsSinceStart >= wallet.termMonths
-            ? 0
-            : principalBtc - monthlyPayment * monthsSinceStart
-
-        totalBtc += Math.max(0, remainingBalance)
+export function portfolioReducer(
+  state: PortfolioState,
+  action: PortfolioAction
+): PortfolioState {
+  switch (action.type) {
+    case 'INITIALIZE':
+      return {
+        ...state,
+        priceData: action.priceData,
       }
-
-      if (wallet.type === 'real') {
-        totalBtc += 1.0
+    case 'ADD_WALLET':
+      return {
+        ...state,
+        wallets: [...state.wallets, action.wallet],
       }
-    }
+    case 'REMOVE_WALLET':
+      return {
+        ...state,
+        wallets: state.wallets.filter((wallet) => wallet.id !== action.id),
+      }
+    case 'UPDATE_WALLET':
+      return {
+        ...state,
+        wallets: state.wallets.map((wallet) =>
+          wallet.id === action.wallet.id ? action.wallet : wallet
+        ),
+      }
+    case 'RECALCULATE':
+      return recalculatePortfolio(state)
+    case 'RESTORE':
+      return action.state
+    default:
+      return state
+  }
+}
 
-    return {
-      date: pricePoint.date,
-      btcValue: totalBtc,
-      usdValue: totalBtc * pricePoint.price,
-    }
+function calculateWalletCashFlows(
+  wallet: Wallet,
+  priceData: PriceData[]
+): CashFlow[] {
+  if (wallet.type === 'real') {
+    // TODO: we need to figure out how to get the transactions for a real wallet from a blockhain explorer API
+    return []
+  }
+
+  const cashFlows: CashFlow[] = []
+  const walletCreationDate = new Date(wallet.createdAt)
+  const walletCreationDatePrice = priceData.find((p) =>
+    isSameDay(new Date(p.date), walletCreationDate)
+  )
+
+  if (!walletCreationDatePrice) {
+    console.warn(
+      `No price data found for wallet creation date ${walletCreationDate}`
+    )
+    return cashFlows
+  }
+
+  const bitcoinPrice = walletCreationDatePrice.price
+  const usdAmount =
+    wallet.principalCurrency === 'USD'
+      ? wallet.principal
+      : wallet.principal * bitcoinPrice
+  const btcAmount =
+    wallet.principalCurrency === 'BTC'
+      ? wallet.principal
+      : wallet.principal / bitcoinPrice
+  cashFlows.push({
+    date: walletCreationDate.toISOString(),
+    walletId: wallet.id,
+    type: 'inflow',
+    usdAmount,
+    btcAmount,
   })
+
+  const monthlyRate = wallet.amortizationRate / 12
+  const monthlyPayment =
+    wallet.principal *
+    (monthlyRate / (1 - (1 + monthlyRate) ** -wallet.termMonths))
+
+  for (let i = 1; i < wallet.termMonths; i++) {
+    const amortizationDate = addMonths(walletCreationDate, i)
+    const amortizationDatePrice = priceData.find((p) =>
+      isSameDay(new Date(p.date), amortizationDate)
+    )
+
+    if (!amortizationDatePrice) {
+      console.warn(
+        `No price data found for amortization date ${amortizationDate}`
+      )
+      continue
+    }
+
+    const bitcoinPrice = amortizationDatePrice.price
+    const usdAmount =
+      wallet.principalCurrency === 'USD'
+        ? monthlyPayment
+        : monthlyPayment * bitcoinPrice
+    const btcAmount =
+      wallet.principalCurrency === 'BTC'
+        ? monthlyPayment
+        : monthlyPayment / bitcoinPrice
+    cashFlows.push({
+      date: amortizationDate.toISOString(),
+      walletId: wallet.id,
+      type: 'outflow',
+      usdAmount,
+      btcAmount,
+    })
+  }
+
+  return cashFlows
+}
+
+function calculateWalletValuations(
+  wallet: Wallet,
+  priceData: PriceData[],
+  cashFlows: CashFlow[]
+): PortfolioValuation[] {
+  const valuations: PortfolioValuation[] = []
+
+  let currentBalance = 0
+
+  for (const cashFlow of cashFlows) {
+    if (cashFlow.walletId !== wallet.id) {
+      continue
+    }
+
+    currentBalance =
+      cashFlow.type === 'inflow'
+        ? currentBalance + cashFlow.btcAmount
+        : currentBalance - cashFlow.btcAmount
+
+    const flowDate = new Date(cashFlow.date)
+    const flowDatePrice = priceData.find((p) =>
+      isSameDay(new Date(p.date), flowDate)
+    )
+
+    if (!flowDatePrice) {
+      console.warn(`No price data found for flow date ${flowDate}`)
+      continue
+    }
+
+    valuations.push({
+      date: flowDate.toISOString(),
+      btcValue: currentBalance,
+      usdValue: currentBalance * flowDatePrice.price,
+    })
+  }
+
+  return valuations
 }

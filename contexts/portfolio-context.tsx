@@ -7,48 +7,36 @@ import {
 } from 'react'
 
 import { useBitcoinPrice } from '@/hooks/use-bitcoin-price'
-import { calculatePortfolioValue } from '@/lib/portfolio'
-import type { Wallet } from '@/lib/portfolio'
-
-type PortfolioState = {
-  wallets: Wallet[]
-}
-
-type PortfolioAction =
-  | { type: 'ADD_WALLET'; wallet: Wallet }
-  | { type: 'REMOVE_WALLET'; id: string }
-  | { type: 'RESTORE'; state: PortfolioState }
+import {
+  portfolioReducer,
+  type PortfolioAction,
+  type PortfolioState,
+} from '@/lib/portfolio'
 
 const initialState: PortfolioState = {
+  priceData: [],
   wallets: [],
-}
-
-function portfolioReducer(
-  state: PortfolioState,
-  action: PortfolioAction
-): PortfolioState {
-  switch (action.type) {
-    case 'ADD_WALLET':
-      return {
-        ...state,
-        wallets: [...state.wallets, action.wallet],
-      }
-    case 'REMOVE_WALLET':
-      return {
-        ...state,
-        wallets: state.wallets.filter((wallet) => wallet.id !== action.id),
-      }
-    case 'RESTORE':
-      return action.state
-    default:
-      return state
-  }
+  cashFlows: [],
+  valuations: [],
 }
 
 const PortfolioContext = createContext<{
   state: PortfolioState
   dispatch: React.Dispatch<PortfolioAction>
 } | null>(null)
+
+function serializeState(state: PortfolioState): string {
+  return JSON.stringify(state)
+}
+
+function deserializeState(jsonStr: string): PortfolioState {
+  try {
+    return JSON.parse(jsonStr)
+  } catch (e) {
+    console.error('Error deserializing state:', e)
+    return initialState
+  }
+}
 
 export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(portfolioReducer, initialState)
@@ -57,12 +45,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const saved = localStorage.getItem('portfolio')
     if (saved) {
-      dispatch({ type: 'RESTORE', state: JSON.parse(saved) })
+      dispatch({ type: 'RESTORE', state: deserializeState(saved) })
     }
   }, [])
 
   useEffect(() => {
-    localStorage.setItem('portfolio', JSON.stringify(state))
+    localStorage.setItem('portfolio', serializeState(state))
   }, [state])
 
   return (
@@ -80,13 +68,13 @@ export function usePortfolio() {
 
   const { data: priceData } = useBitcoinPrice()
 
-  const calculatePortfolioData = useMemo(() => {
-    if (!priceData?.length) return []
-    return calculatePortfolioValue(context.state.wallets, priceData)
-  }, [priceData, context.state.wallets])
+  useEffect(() => {
+    context.dispatch({ type: 'INITIALIZE', priceData: priceData ?? [] })
+    context.dispatch({ type: 'RECALCULATE' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [priceData])
 
   return {
     ...context,
-    calculatePortfolioData,
   }
 }

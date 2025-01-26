@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertCircle, Wallet } from 'lucide-react'
+import { AlertCircle, FileText, Wallet } from 'lucide-react'
 import { Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
 
 import { AddWalletDialog } from '@/components/add-wallet-dialog'
+import { CashFlowReport } from '@/components/cash-flow-report'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -201,7 +202,16 @@ function PriceChartCard() {
 
 function PortfolioChartCard() {
   const { isLoading, error, refetch } = useBitcoinPrice()
-  const { calculatePortfolioData } = usePortfolio()
+  const { state } = usePortfolio()
+
+  const usdData = state.valuations.map(({ date, usdValue }) => ({
+    date,
+    usdValue,
+  }))
+  const btcData = state.valuations.map(({ date, btcValue }) => ({
+    date,
+    btcValue,
+  }))
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -210,11 +220,7 @@ function PortfolioChartCard() {
         description="Projected value based on current parameters"
       >
         <AsyncChart isLoading={isLoading} error={error} onRetry={refetch}>
-          <PortfolioChart
-            data={calculatePortfolioData}
-            dataKey="usdValue"
-            valuePrefix="$"
-          />
+          <PortfolioChart data={usdData} dataKey="usdValue" valuePrefix="$" />
         </AsyncChart>
       </ChartCard>
 
@@ -223,11 +229,7 @@ function PortfolioChartCard() {
         description="Bitcoin holdings over time"
       >
         <AsyncChart isLoading={isLoading} error={error} onRetry={refetch}>
-          <PortfolioChart
-            data={calculatePortfolioData}
-            dataKey="btcValue"
-            valuePrefix="₿"
-          />
+          <PortfolioChart data={btcData} dataKey="btcValue" valuePrefix="₿" />
         </AsyncChart>
       </ChartCard>
     </div>
@@ -235,7 +237,8 @@ function PortfolioChartCard() {
 }
 
 function PageHeader() {
-  const [open, setOpen] = useState(false)
+  const [addWalletOpen, setAddWalletOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
 
   return (
     <div className="flex items-center justify-between">
@@ -245,12 +248,17 @@ function PageHeader() {
           Track and calculate your Bitcoin-based annuity payments
         </p>
       </div>
-      <div>
-        <Button onClick={() => setOpen(true)}>
-          <Wallet className="mr-2 h-4 w-4" />
-          Add Wallet
+      <div className="flex gap-3">
+        <Button variant="outline" onClick={() => setReportOpen(true)}>
+          <FileText className="mr-2 h-4 w-4" />
+          View Report
         </Button>
-        <AddWalletDialog open={open} onOpenChange={setOpen} />
+        <Button onClick={() => setAddWalletOpen(true)}>
+          <Wallet className="mr-2 h-4 w-4" />
+          Add Annuity Wallet
+        </Button>
+        <AddWalletDialog open={addWalletOpen} onOpenChange={setAddWalletOpen} />
+        <CashFlowReport open={reportOpen} onOpenChange={setReportOpen} />
       </div>
     </div>
   )

@@ -39,6 +39,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { usePortfolio } from '@/contexts/portfolio-context'
+import { useBitcoinPrice } from '@/hooks/use-bitcoin-price'
 import type { RealWallet, VirtualWallet } from '@/lib/portfolio'
 
 interface AddWalletDialogProps {
@@ -56,6 +57,7 @@ const virtualWalletSchema = z.object({
 
 function VirtualWalletForm() {
   const { dispatch } = usePortfolio()
+  const { data: priceData } = useBitcoinPrice()
 
   const form = useForm<z.infer<typeof virtualWalletSchema>>({
     resolver: zodResolver(virtualWalletSchema),
@@ -68,18 +70,25 @@ function VirtualWalletForm() {
     },
   })
 
-  function onSubmit(values: z.infer<typeof virtualWalletSchema>) {
+  const onSubmit = form.handleSubmit((values) => {
+    if (!priceData) {
+      console.error('Price data not available')
+      return
+    }
+
     const wallet: VirtualWallet = {
       id: crypto.randomUUID(),
       type: 'virtual',
       ...values,
     }
-    dispatch({ type: 'ADD_WALLET', wallet })
-  }
+
+    dispatch({ type: 'ADD_WALLET', wallet, priceData })
+    form.reset()
+  })
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-4">
         <FormField
           control={form.control}
           name="createdAt"
@@ -203,6 +212,7 @@ const realWalletSchema = z.object({
 
 function RealWalletForm() {
   const { dispatch } = usePortfolio()
+  const { data: priceData } = useBitcoinPrice()
   const form = useForm<z.infer<typeof realWalletSchema>>({
     resolver: zodResolver(realWalletSchema),
     defaultValues: {
@@ -210,18 +220,23 @@ function RealWalletForm() {
     },
   })
 
-  function onSubmit(values: z.infer<typeof realWalletSchema>) {
+  const onSubmit = form.handleSubmit((values) => {
+    if (!priceData) {
+      console.error('Price data not available')
+      return
+    }
+
     const wallet: RealWallet = {
       id: crypto.randomUUID(),
       type: 'real',
       ...values,
     }
-    dispatch({ type: 'ADD_WALLET', wallet })
-  }
+    dispatch({ type: 'ADD_WALLET', wallet, priceData })
+  })
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-4">
         <FormField
           control={form.control}
           name="publicKey"
