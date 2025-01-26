@@ -14,7 +14,7 @@ function TradingViewWidget() {
         {
           "symbols": [
             [
-              "INDEX:BTCUSD|ALL"
+              "INDEX:BTCUSD|60M"
             ]
           ],
           "chartOnly": false,
