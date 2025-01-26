@@ -9,7 +9,7 @@ import {
 
 const initialState: PortfolioState = {
   priceData: [],
-  wallets: [],
+  annuities: [],
   cashFlows: [],
   valuations: [],
 }

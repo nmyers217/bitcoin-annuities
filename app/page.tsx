@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { AlertCircle, FileText, Wallet } from 'lucide-react'
 import { Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
 
-import { AddWalletDialog } from '@/components/add-wallet-dialog'
+import { AddAnnuityDialog } from '@/components/add-annuity-dialog'
 import { CashFlowReport } from '@/components/cash-flow-report'
 import TradingViewWidget from '@/components/trading-view-widget'
 import { Button } from '@/components/ui/button'
@@ -231,7 +231,7 @@ function PortfolioChartCard() {
 }
 
 function PageHeader() {
-  const [addWalletOpen, setAddWalletOpen] = useState(false)
+  const [addAnnuityOpen, setAddAnnuityOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
 
   return (
@@ -247,11 +247,14 @@ function PageHeader() {
           <FileText className="mr-2 h-4 w-4" />
           View Report
         </Button>
-        <Button onClick={() => setAddWalletOpen(true)}>
+        <Button onClick={() => setAddAnnuityOpen(true)}>
           <Wallet className="mr-2 h-4 w-4" />
-          Add Annuity Wallet
+          Add Annuity
         </Button>
-        <AddWalletDialog open={addWalletOpen} onOpenChange={setAddWalletOpen} />
+        <AddAnnuityDialog
+          open={addAnnuityOpen}
+          onOpenChange={setAddAnnuityOpen}
+        />
         <CashFlowReport open={reportOpen} onOpenChange={setReportOpen} />
       </div>
     </div>

@@ -104,7 +104,16 @@ export function recalculatePortfolio(state: PortfolioState): PortfolioState {
 }
 
 export function parsePortfolioDate(date: string | Date): Date {
-  return typeof date === 'string' ? parseISO(date) : date
+  if (date instanceof Date) return date
+
+  // Handle MM/DD/YYYY format from API
+  if (date.includes('/')) {
+    const [month, day, year] = date.split('/')
+    return new Date(Number(year), Number(month) - 1, Number(day))
+  }
+
+  // Handle YYYY-MM-DD format
+  return parseISO(date)
 }
 
 export function* iterateMonths(

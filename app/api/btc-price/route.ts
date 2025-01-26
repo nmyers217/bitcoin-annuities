@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 async function fetchBitcoinPriceData() {
   // Returns daily price data since 2009
   const response = await fetch(
-    'https://api.blockchain.info/charts/market-price?timespan=all&sampled=true&format=json'
+    'https://api.blockchain.info/charts/market-price?timespan=all&sampled=false&format=json'
   )
 
   const data = await response.json()

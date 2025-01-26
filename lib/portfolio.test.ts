@@ -43,6 +43,11 @@ describe('Portfolio Management', () => {
       expect(result).toEqual(parseISO('2024-01-01'))
     })
 
+    it('should parse a string date with MM/DD/YYYY format', () => {
+      const result = parsePortfolioDate('01/01/2024')
+      expect(result).toEqual(parseISO('2024-01-01'))
+    })
+
     it('should parse a Date object', () => {
       const result = parsePortfolioDate(new Date('2024-01-01'))
       expect(result).toEqual(new Date('2024-01-01'))

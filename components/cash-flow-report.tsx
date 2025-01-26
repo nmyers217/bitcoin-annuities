@@ -27,22 +27,6 @@ interface CashFlowReportProps {
   onOpenChange: (open: boolean) => void
 }
 
-interface MonthlyFlow {
-  date: Date
-  wallets: {
-    id: string
-    name: string
-    btcInflow: number
-    btcOutflow: number
-    usdInflow: number
-    usdOutflow: number
-  }[]
-  totalBtcInflow: number
-  totalBtcOutflow: number
-  totalUsdInflow: number
-  totalUsdOutflow: number
-}
-
 export function CashFlowReport({ open, onOpenChange }: CashFlowReportProps) {
   const { state } = usePortfolio()
   const { data: priceData } = useBitcoinPrice()
