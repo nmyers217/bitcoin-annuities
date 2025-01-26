@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { usePortfolio } from '@/contexts/portfolio-context'
-import { findPriceData, parsePortfolioDate } from '@/lib/portfolio'
+import { Annuity, findPriceData, parsePortfolioDate } from '@/lib/portfolio'
 
 export function AnnuitiesCard() {
   const { state, dispatch } = usePortfolio()

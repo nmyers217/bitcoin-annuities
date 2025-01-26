@@ -125,13 +125,6 @@ function BaseLineChart({
   )
 }
 
-// Simplified chart components
-function PriceChart({ data }: { data: any[] }) {
-  return (
-    <BaseLineChart data={data} dataKey="price" label="Price" valuePrefix="$" />
-  )
-}
-
 function PortfolioChart({
   data,
   dataKey,

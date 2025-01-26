@@ -90,15 +90,8 @@ export function recalculatePortfolio(state: PortfolioState): PortfolioState {
         parsePortfolioDate(a.date).getTime() -
         parsePortfolioDate(b.date).getTime()
     )
-  const valuations = state.annuities
-    .flatMap((annuity) =>
-      calculateValuations(annuity, state.priceData, cashFlows)
-    )
-    .sort(
-      (a, b) =>
-        parsePortfolioDate(a.date).getTime() -
-        parsePortfolioDate(b.date).getTime()
-    )
+
+  const valuations = calculateValuations(state.priceData, cashFlows)
 
   return { ...state, cashFlows, valuations }
 }
@@ -210,16 +203,13 @@ function calculateCashFlows(
 }
 
 function calculateValuations(
-  annuity: Annuity,
   priceData: PriceData[],
   cashFlows: CashFlow[]
 ): PortfolioValuation[] {
   const valuations: PortfolioValuation[] = []
   let currentBalance = 0
 
-  for (const cashFlow of cashFlows.filter(
-    (cf) => cf.annuityId === annuity.id
-  )) {
+  for (const cashFlow of cashFlows) {
     currentBalance +=
       cashFlow.type === 'inflow' ? cashFlow.btcAmount : -cashFlow.btcAmount
 
