@@ -212,6 +212,7 @@ function calculateValuations(
   for (const cashFlow of cashFlows) {
     currentBalance +=
       cashFlow.type === 'inflow' ? cashFlow.btcAmount : -cashFlow.btcAmount
+    currentBalance = Math.max(0, currentBalance)
 
     const price = findPriceData(parsePortfolioDate(cashFlow.date), priceData)
     if (!price) continue
