@@ -2,7 +2,15 @@
 
 import { useState } from 'react'
 import { addMonths, differenceInMonths, format, subMonths } from 'date-fns'
-import { Copy, Landmark, Minus, Pencil, Plus, Trash2 } from 'lucide-react'
+import {
+  Banknote,
+  Copy,
+  Landmark,
+  Minus,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react'
 
 import { AddAnnuityDialog } from '@/components/add-annuity-dialog'
 import { Button } from '@/components/ui/button'
@@ -16,6 +24,19 @@ import {
 import { Input } from '@/components/ui/input'
 import { usePortfolio } from '@/contexts/portfolio-context'
 import { Annuity, findPriceData, parsePortfolioDate } from '@/lib/portfolio'
+
+const calculateMonthlyPayment = (annuity: Annuity, creationPrice: number) => {
+  const monthlyRate = annuity.amortizationRate / 12
+  const principalUSD =
+    annuity.principalCurrency === 'USD'
+      ? annuity.principal
+      : annuity.principal * creationPrice
+
+  return (
+    principalUSD *
+    (monthlyRate / (1 - (1 + monthlyRate) ** -annuity.termMonths))
+  )
+}
 
 export function AnnuitiesCard() {
   const { state, dispatch } = usePortfolio()
@@ -100,6 +121,10 @@ export function AnnuitiesCard() {
               .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
               .map((annuity) => {
                 const creationPrice = getCreationPrice(annuity)
+                const monthlyPayment = calculateMonthlyPayment(
+                  annuity,
+                  creationPrice
+                )
                 return (
                   <div
                     key={annuity.id}
@@ -121,6 +146,17 @@ export function AnnuitiesCard() {
                             : (
                                 annuity.principal * creationPrice
                               ).toLocaleString()}
+                        </span>
+                        <span className="text-muted-foreground">•</span>
+                        <span className="flex items-center gap-1">
+                          <Banknote className="h-4 w-4 text-muted-foreground" />
+                          {monthlyPayment.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                          <span className="text-sm text-muted-foreground">
+                            /mo
+                          </span>
                         </span>
                       </p>
                       <p className="text-sm text-muted-foreground">
