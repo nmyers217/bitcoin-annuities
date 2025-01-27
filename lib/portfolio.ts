@@ -9,6 +9,7 @@ import {
   startOfMonth,
 } from 'date-fns'
 
+import { type MonteCarloResult } from '@/hooks/use-monte-carlo'
 import { type PriceData } from '@/lib/api'
 
 export type Annuity = {
@@ -31,7 +32,11 @@ export interface CashFlow {
 export interface PortfolioValuation {
   date: string
   btcValue: number
+  btcValueBest?: number
+  btcValueWorst?: number
   usdValue: number
+  usdValueBest?: number
+  usdValueWorst?: number
 }
 
 type CalculationStatus = 'idle' | 'calculating'
@@ -49,7 +54,8 @@ export interface PortfolioState {
 type Worker = {
   calculate: (
     priceData: PriceData[],
-    annuities: Annuity[]
+    annuities: Annuity[],
+    monteCarloData?: MonteCarloResult
   ) => Promise<{
     cashFlows: CashFlow[]
     valuations: PortfolioValuation[]
@@ -226,7 +232,8 @@ export function portfolioReducer(
 
 export function performCalculations(
   priceData: PriceData[],
-  annuities: Annuity[]
+  annuities: Annuity[],
+  monteCarloData?: MonteCarloResult
 ) {
   const cashFlows = annuities
     .flatMap((annuity) => calculateCashFlows(annuity, priceData))
@@ -236,14 +243,15 @@ export function performCalculations(
         parsePortfolioDate(b.date).getTime()
     )
 
-  const valuations = calculateValuations(priceData, cashFlows)
+  const valuations = calculateValuations(priceData, cashFlows, monteCarloData)
   return { cashFlows, valuations }
 }
 
 // Update recalculatePortfolio to use performCalculations
 export async function recalculatePortfolio(
   state: PortfolioState,
-  dispatch: (action: PortfolioAction) => void
+  dispatch: (action: PortfolioAction) => void,
+  monteCarloData?: MonteCarloResult
 ): Promise<void> {
   console.log('Recalculate portfolio:', {
     priceDataLength: state.priceData.length,
@@ -273,8 +281,8 @@ export async function recalculatePortfolio(
 
   try {
     const result = worker
-      ? await worker.calculate(state.priceData, state.annuities)
-      : performCalculations(state.priceData, state.annuities)
+      ? await worker.calculate(state.priceData, state.annuities, monteCarloData)
+      : performCalculations(state.priceData, state.annuities, monteCarloData)
 
     calculationCache.set(inputHash, result)
     dispatch({
@@ -387,11 +395,13 @@ function calculateCashFlows(
 
 function calculateValuations(
   priceData: PriceData[],
-  cashFlows: CashFlow[]
+  cashFlows: CashFlow[],
+  monteCarloData?: MonteCarloResult
 ): PortfolioValuation[] {
   const valuations: PortfolioValuation[] = []
   let currentBalance = 0
 
+  // Process historical cash flows and valuations
   for (const cashFlow of cashFlows) {
     currentBalance +=
       cashFlow.type === 'inflow' ? cashFlow.btcAmount : -cashFlow.btcAmount
@@ -407,17 +417,64 @@ function calculateValuations(
     })
   }
 
-  // Add a valuation for the final data point, because users will want to know the current value of their portfolio
+  // Add a valuation for the final historical data point
   const lastPriceData = priceData.at(-1)
   const lastPriceNotInValuations = valuations.find(
     (valuation) => valuation.date === lastPriceData?.date
   )
-  if (!lastPriceNotInValuations) {
+  if (!lastPriceNotInValuations && lastPriceData) {
     valuations.push({
-      date: lastPriceData?.date ?? '',
+      date: lastPriceData.date,
       btcValue: currentBalance,
-      usdValue: currentBalance * (lastPriceData?.price ?? 0),
+      usdValue: currentBalance * lastPriceData.price,
     })
+  }
+
+  // Add future valuations using Monte Carlo data if available
+  if (monteCarloData?.chartData && lastPriceData) {
+    // Initialize scenario balances with current balance
+    let bestBalance = currentBalance
+    let worstBalance = currentBalance
+
+    // Get monthly samples from Monte Carlo data
+    const monthlyProjections = monteCarloData.chartData.filter(
+      (point, index) =>
+        index === 0 || // Include first point
+        index === monteCarloData.chartData.length - 1 || // Include last point
+        new Date(point.date).getDate() === 1 // Include first day of each month
+    )
+
+    // Get the most recent monthly outflow amount
+    const lastOutflow = cashFlows
+      .filter((cf) => cf.type === 'outflow')
+      .sort((a, b) => b.date.localeCompare(a.date))[0]
+
+    const monthlyOutflowUSD = lastOutflow?.usdAmount ?? 0
+
+    // Add valuations for each monthly projection
+    for (const projection of monthlyProjections) {
+      if (new Date(projection.date) <= new Date(lastPriceData.date)) continue
+
+      // Calculate BTC needed to sell for each scenario
+      const bestBTCNeeded = monthlyOutflowUSD / projection.bestPrice
+      const avgBTCNeeded = monthlyOutflowUSD / projection.averagePrice
+      const worstBTCNeeded = monthlyOutflowUSD / projection.worstPrice
+
+      // Update balances
+      bestBalance = Math.max(0, bestBalance - bestBTCNeeded)
+      currentBalance = Math.max(0, currentBalance - avgBTCNeeded)
+      worstBalance = Math.max(0, worstBalance - worstBTCNeeded)
+
+      valuations.push({
+        date: projection.date,
+        btcValue: currentBalance,
+        btcValueBest: bestBalance,
+        btcValueWorst: worstBalance,
+        usdValue: currentBalance * projection.averagePrice,
+        usdValueBest: bestBalance * projection.bestPrice,
+        usdValueWorst: worstBalance * projection.worstPrice,
+      })
+    }
   }
 
   return valuations

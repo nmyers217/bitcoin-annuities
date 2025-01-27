@@ -32,7 +32,10 @@ function serializeState(state: PortfolioState): string {
 
 export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(portfolioReducer, initialState)
+  const { data: priceData } = useBitcoinPrice()
+  const { data: monteCarloData } = useMonteCarlo()
 
+  // Handle initial state restoration
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const annuitiesParam = params.get('annuities')
@@ -52,16 +55,32 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  // Save state to localStorage
   useEffect(() => {
     localStorage.setItem('portfolioState', serializeState(state))
   }, [state])
 
+  // Handle price data initialization and calculations
   useEffect(() => {
-    if (state.calculationStatus === 'calculating') {
-      recalculatePortfolio(state, dispatch)
+    if (!priceData?.length) return
+
+    // Initialize price data if needed
+    if (
+      !state.priceData.length ||
+      state.priceData[0].date !== priceData[0].date
+    ) {
+      dispatch({ type: 'INITIALIZE', priceData })
+      return
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.calculationStatus])
+
+    // Only recalculate if we have all required data and are in calculating state
+    if (
+      state.calculationStatus === 'calculating' &&
+      monteCarloData?.chartData?.length
+    ) {
+      recalculatePortfolio(state, dispatch, monteCarloData)
+    }
+  }, [state, priceData, monteCarloData])
 
   return (
     <PortfolioContext.Provider value={{ state, dispatch }}>
@@ -76,20 +95,8 @@ export function usePortfolio() {
     throw new Error('usePortfolio must be used within a PortfolioProvider')
   }
 
-  const { data: priceData, isLoading: isPriceLoading } = useBitcoinPrice()
+  const { isLoading: isPriceLoading } = useBitcoinPrice()
   const { isLoading: isMonteCarloLoading } = useMonteCarlo()
-
-  // Only dispatch price data updates when it changes and is not empty
-  useEffect(() => {
-    if (
-      priceData &&
-      priceData.length > 0 &&
-      (!context.state.priceData.length ||
-        context.state.priceData[0].date !== priceData[0].date)
-    ) {
-      context.dispatch({ type: 'INITIALIZE', priceData })
-    }
-  }, [context, priceData])
 
   return {
     ...context,

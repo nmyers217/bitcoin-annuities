@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/card'
 import { usePortfolio } from '@/contexts/portfolio-context'
 import { useBitcoinPrice } from '@/hooks/use-bitcoin-price'
-import { BaseLineChart } from './base-line-chart'
+import { BaseLineChart, type ChartData } from './base-line-chart'
 import { MonteCarloChartCard } from './monte-carlo-chart'
 import { AsyncChart } from './shared'
 
@@ -17,18 +17,25 @@ function PortfolioChart({
   data,
   dataKey,
   valuePrefix,
+  projectionKeys,
+  formatter,
 }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data: any[]
+  data: ChartData[]
   dataKey: string
   valuePrefix: string
+  projectionKeys?: {
+    best: string
+    worst: string
+  }
+  formatter?: (value: number) => string
 }) {
   return (
     <BaseLineChart
       data={data}
       dataKey={dataKey}
-      label={dataKey === 'usdValue' ? 'USD Value' : 'BTC Value'}
       valuePrefix={valuePrefix}
+      projectionKeys={projectionKeys}
+      formatter={formatter}
     />
   )
 }
@@ -74,14 +81,22 @@ export function PortfolioChartCard() {
   const { state } = usePortfolio()
   const isCalculating = state.calculationStatus === 'calculating'
 
-  const usdData = state.valuations.map(({ date, usdValue }) => ({
-    date,
-    usdValue,
-  }))
-  const btcData = state.valuations.map(({ date, btcValue }) => ({
-    date,
-    btcValue,
-  }))
+  const usdData = state.valuations.map(
+    ({ date, usdValue, usdValueBest, usdValueWorst }) => ({
+      date,
+      usdValue,
+      usdValueBest: usdValueBest ?? usdValue,
+      usdValueWorst: usdValueWorst ?? usdValue,
+    })
+  )
+  const btcData = state.valuations.map(
+    ({ date, btcValue, btcValueBest, btcValueWorst }) => ({
+      date,
+      btcValue,
+      btcValueBest: btcValueBest ?? btcValue,
+      btcValueWorst: btcValueWorst ?? btcValue,
+    })
+  )
 
   // Aggregate outflows by month
   const monthlyIncomeData = state.cashFlows
@@ -100,6 +115,15 @@ export function PortfolioChartCard() {
     }))
     .sort((a, b) => a.date.localeCompare(b.date))
 
+  const btcFormatter = (value: number) => {
+    // Format with 8 decimal places and remove trailing zeros
+    const formatted = value.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 8,
+    })
+    return `₿${formatted}`
+  }
+
   return (
     <div className="space-y-6">
       <MonteCarloChartCard />
@@ -115,7 +139,21 @@ export function PortfolioChartCard() {
             error={error}
             onRetry={refetch}
           >
-            <PortfolioChart data={usdData} dataKey="usdValue" valuePrefix="$" />
+            <PortfolioChart
+              data={usdData}
+              dataKey="usdValue"
+              valuePrefix="$"
+              projectionKeys={{
+                best: 'usdValueBest',
+                worst: 'usdValueWorst',
+              }}
+              formatter={(value) =>
+                new Intl.NumberFormat('en-US', {
+                  notation: 'compact',
+                  maximumFractionDigits: 0,
+                }).format(value)
+              }
+            />
           </AsyncChart>
         </ChartCard>
 
@@ -130,7 +168,16 @@ export function PortfolioChartCard() {
             error={error}
             onRetry={refetch}
           >
-            <PortfolioChart data={btcData} dataKey="btcValue" valuePrefix="₿" />
+            <PortfolioChart
+              data={btcData}
+              dataKey="btcValue"
+              valuePrefix=""
+              projectionKeys={{
+                best: 'btcValueBest',
+                worst: 'btcValueWorst',
+              }}
+              formatter={btcFormatter}
+            />
           </AsyncChart>
         </ChartCard>
 
@@ -149,6 +196,12 @@ export function PortfolioChartCard() {
               data={monthlyIncomeChartData}
               dataKey="usdValue"
               valuePrefix="$"
+              formatter={(value) =>
+                new Intl.NumberFormat('en-US', {
+                  notation: 'standard',
+                  maximumFractionDigits: 0,
+                }).format(value)
+              }
             />
           </AsyncChart>
         </ChartCard>
