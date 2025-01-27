@@ -39,7 +39,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    localStorage.setItem('portfolio', serializeState(state))
+    localStorage.setItem('portfolioState', serializeState(state))
   }, [state])
 
   useEffect(() => {
@@ -62,14 +62,18 @@ export function usePortfolio() {
     throw new Error('usePortfolio must be used within a PortfolioProvider')
   }
 
-  const { data: priceData } = useBitcoinPrice()
+  const { data: priceData, isLoading: isPriceLoading } = useBitcoinPrice()
 
   useEffect(() => {
     context.dispatch({ type: 'INITIALIZE', priceData: priceData ?? [] })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [priceData])
 
+  const isLoading =
+    isPriceLoading || context.state.calculationStatus === 'calculating'
+
   return {
     ...context,
+    isLoading,
   }
 }

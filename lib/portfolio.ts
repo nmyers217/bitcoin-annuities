@@ -1,3 +1,5 @@
+import * as Comlink from 'comlink'
+import type { Remote } from 'comlink'
 import { addMonths, isSameDay, parseISO, startOfMonth } from 'date-fns'
 
 import { type PriceData } from '@/lib/api'
@@ -38,6 +40,26 @@ export type PortfolioState = {
   valuations: PortfolioValuation[]
   calculationStatus: CalculationStatus
   lastCalculationInputHash?: string
+}
+
+type Worker = {
+  calculate: (
+    priceData: PriceData[],
+    annuities: Annuity[]
+  ) => Promise<{
+    cashFlows: CashFlow[]
+    valuations: PortfolioValuation[]
+  }>
+}
+
+let workerApi: Remote<Worker> | null = null
+
+function getWorker() {
+  if (!workerApi && typeof Worker !== 'undefined') {
+    const worker = new Worker(new URL('./portfolio.worker.ts', import.meta.url))
+    workerApi = Comlink.wrap<Worker>(worker)
+  }
+  return workerApi
 }
 
 export type PortfolioAction =
@@ -122,7 +144,7 @@ export function portfolioReducer(
       return state
     case 'RESTORE':
       return {
-        ...action.state,
+        ...sanitizePortfolioState(action.state),
         calculationStatus: 'calculating',
         lastCalculationInputHash: undefined,
       }
@@ -131,21 +153,35 @@ export function portfolioReducer(
   }
 }
 
+export function performCalculations(
+  priceData: PriceData[],
+  annuities: Annuity[]
+) {
+  const cashFlows = annuities
+    .flatMap((annuity) => calculateCashFlows(annuity, priceData))
+    .sort(
+      (a, b) =>
+        parsePortfolioDate(a.date).getTime() -
+        parsePortfolioDate(b.date).getTime()
+    )
+
+  const valuations = calculateValuations(priceData, cashFlows)
+  return { cashFlows, valuations }
+}
+
+// Update recalculatePortfolio to use performCalculations
 export async function recalculatePortfolio(
   state: PortfolioState,
   dispatch: (action: PortfolioAction) => void
 ): Promise<void> {
   const inputHash = calculateInputHash(state.priceData, state.annuities)
 
-  // If nothing has changed, no need to recalculate
   if (inputHash === state.lastCalculationInputHash) {
     return
   }
 
-  // Start calculation and update input hash
   dispatch({ type: 'START_CALCULATION', inputHash })
 
-  // Check cache first
   const cached = calculationCache.get(inputHash)
   if (cached) {
     dispatch({
@@ -156,28 +192,23 @@ export async function recalculatePortfolio(
     return
   }
 
-  // Do the heavy calculation in the next tick
-  await Promise.resolve()
+  const worker = getWorker()
 
-  const cashFlows = state.annuities
-    .flatMap((annuity) => calculateCashFlows(annuity, state.priceData))
-    .sort(
-      (a, b) =>
-        parsePortfolioDate(a.date).getTime() -
-        parsePortfolioDate(b.date).getTime()
-    )
+  try {
+    const result = worker
+      ? await worker.calculate(state.priceData, state.annuities)
+      : performCalculations(state.priceData, state.annuities)
 
-  const valuations = calculateValuations(state.priceData, cashFlows)
-
-  // Cache the results
-  calculationCache.set(inputHash, { cashFlows, valuations })
-
-  dispatch({
-    type: 'CALCULATION_COMPLETE',
-    cashFlows,
-    valuations,
-    inputHash,
-  })
+    calculationCache.set(inputHash, result)
+    dispatch({
+      type: 'CALCULATION_COMPLETE',
+      ...result,
+      inputHash,
+    })
+  } catch (error) {
+    console.error('Calculation failed:', error)
+    // Optionally dispatch an error action here
+  }
 }
 
 export function parsePortfolioDate(date: string | Date): Date {
