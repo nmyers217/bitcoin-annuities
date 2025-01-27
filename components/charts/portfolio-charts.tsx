@@ -36,6 +36,7 @@ function ChartCard({
   title,
   description,
   children,
+  isLoading,
   icon: Icon,
 }: {
   title: string
@@ -47,9 +48,18 @@ function ChartCard({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center gap-2">
-          {Icon && <Icon className="h-5 w-5 text-muted-foreground" />}
-          <CardTitle>{title}</CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {Icon && <Icon className="h-5 w-5 text-muted-foreground" />}
+            <CardTitle>{title}</CardTitle>
+          </div>
+          <div
+            className={`h-2 w-2 rounded-full ${
+              isLoading
+                ? 'animate-spin border border-gray-400 border-t-transparent'
+                : 'bg-green-500'
+            }`}
+          />
         </div>
         <CardDescription>{description}</CardDescription>
       </CardHeader>

@@ -2,9 +2,11 @@
 import React, { memo, useEffect, useRef } from 'react'
 
 function TradingViewWidget() {
-  const container = useRef()
+  const container = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (!container.current) return
+
     const script = document.createElement('script')
     script.src =
       'https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js'
