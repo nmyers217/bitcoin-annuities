@@ -25,6 +25,8 @@ export interface PortfolioValuation {
   usdValue: number
 }
 
+type CalculationStatus = 'idle' | 'calculating'
+
 export type PortfolioState = {
   // First the price data is fetched from the API
   priceData: PriceData[]
@@ -34,6 +36,8 @@ export type PortfolioState = {
   cashFlows: CashFlow[]
   // Then the valuations are calculated
   valuations: PortfolioValuation[]
+  calculationStatus: CalculationStatus
+  lastCalculationInputHash?: string
 }
 
 export type PortfolioAction =
@@ -41,8 +45,30 @@ export type PortfolioAction =
   | { type: 'ADD_ANNUITY'; annuity: Annuity }
   | { type: 'REMOVE_ANNUITY'; id: string }
   | { type: 'UPDATE_ANNUITY'; annuity: Annuity }
-  | { type: 'RECALCULATE' }
+  | { type: 'START_CALCULATION'; inputHash: string }
+  | {
+      type: 'CALCULATION_COMPLETE'
+      cashFlows: CashFlow[]
+      valuations: PortfolioValuation[]
+      inputHash: string
+    }
   | { type: 'RESTORE'; state: PortfolioState }
+
+// Simple cache for memoization
+const calculationCache = new Map<
+  string,
+  { cashFlows: CashFlow[]; valuations: PortfolioValuation[] }
+>()
+
+function calculateInputHash(
+  priceData: PriceData[],
+  annuities: Annuity[]
+): string {
+  return JSON.stringify({
+    priceData: priceData.map((p) => ({ date: p.date, price: p.price })),
+    annuities: annuities.map((a) => ({ ...a })),
+  })
+}
 
 export function portfolioReducer(
   state: PortfolioState,
@@ -50,39 +76,89 @@ export function portfolioReducer(
 ): PortfolioState {
   switch (action.type) {
     case 'INITIALIZE':
-      return recalculatePortfolio({
+      return {
         ...state,
         priceData: action.priceData,
-      })
+        calculationStatus: 'calculating',
+      }
     case 'ADD_ANNUITY':
-      return recalculatePortfolio({
+      return {
         ...state,
         annuities: [...state.annuities, action.annuity],
-      })
+        calculationStatus: 'calculating',
+      }
     case 'REMOVE_ANNUITY':
-      return recalculatePortfolio({
+      return {
         ...state,
         annuities: state.annuities.filter(
           (annuity) => annuity.id !== action.id
         ),
-      })
+        calculationStatus: 'calculating',
+      }
     case 'UPDATE_ANNUITY':
-      return recalculatePortfolio({
+      return {
         ...state,
         annuities: state.annuities.map((annuity) =>
           annuity.id === action.annuity.id ? action.annuity : annuity
         ),
-      })
-    case 'RECALCULATE':
-      return recalculatePortfolio(state)
+        calculationStatus: 'calculating',
+      }
+    case 'START_CALCULATION':
+      return {
+        ...state,
+        lastCalculationInputHash: action.inputHash,
+        calculationStatus: 'calculating',
+      }
+    case 'CALCULATION_COMPLETE':
+      // Only update if this is the most recent calculation
+      if (action.inputHash === state.lastCalculationInputHash) {
+        return {
+          ...state,
+          cashFlows: action.cashFlows,
+          valuations: action.valuations,
+          calculationStatus: 'idle',
+        }
+      }
+      return state
     case 'RESTORE':
-      return action.state
+      return {
+        ...action.state,
+        calculationStatus: 'calculating',
+        lastCalculationInputHash: undefined,
+      }
     default:
       return state
   }
 }
 
-export function recalculatePortfolio(state: PortfolioState): PortfolioState {
+export async function recalculatePortfolio(
+  state: PortfolioState,
+  dispatch: (action: PortfolioAction) => void
+): Promise<void> {
+  const inputHash = calculateInputHash(state.priceData, state.annuities)
+
+  // If nothing has changed, no need to recalculate
+  if (inputHash === state.lastCalculationInputHash) {
+    return
+  }
+
+  // Start calculation and update input hash
+  dispatch({ type: 'START_CALCULATION', inputHash })
+
+  // Check cache first
+  const cached = calculationCache.get(inputHash)
+  if (cached) {
+    dispatch({
+      type: 'CALCULATION_COMPLETE',
+      ...cached,
+      inputHash,
+    })
+    return
+  }
+
+  // Do the heavy calculation in the next tick
+  await Promise.resolve()
+
   const cashFlows = state.annuities
     .flatMap((annuity) => calculateCashFlows(annuity, state.priceData))
     .sort(
@@ -93,7 +169,15 @@ export function recalculatePortfolio(state: PortfolioState): PortfolioState {
 
   const valuations = calculateValuations(state.priceData, cashFlows)
 
-  return { ...state, cashFlows, valuations }
+  // Cache the results
+  calculationCache.set(inputHash, { cashFlows, valuations })
+
+  dispatch({
+    type: 'CALCULATION_COMPLETE',
+    cashFlows,
+    valuations,
+    inputHash,
+  })
 }
 
 export function parsePortfolioDate(date: string | Date): Date {
@@ -225,4 +309,18 @@ function calculateValuations(
   }
 
   return valuations
+}
+
+// Helper function to ensure state has all required fields
+export function sanitizePortfolioState(
+  state: Partial<PortfolioState>
+): PortfolioState {
+  return {
+    priceData: state.priceData ?? [],
+    annuities: state.annuities ?? [],
+    cashFlows: state.cashFlows ?? [],
+    valuations: state.valuations ?? [],
+    calculationStatus: state.calculationStatus ?? 'idle',
+    lastCalculationInputHash: state.lastCalculationInputHash,
+  }
 }
