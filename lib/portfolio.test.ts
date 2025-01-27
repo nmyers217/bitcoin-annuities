@@ -35,6 +35,7 @@ describe('Portfolio Management', () => {
     annuities: [],
     cashFlows: [],
     valuations: [],
+    calculationStatus: 'idle',
   }
 
   describe('parsePortfolioDate', () => {
@@ -101,6 +102,64 @@ describe('Portfolio Management', () => {
 
       expect(newState.annuities).toHaveLength(1)
       expect(newState.annuities[0]).toEqual(sampleAnnuity)
+      expect(newState.calculationStatus).toBe('calculating')
+    })
+
+    it('should remove an annuity', () => {
+      const stateWithAnnuity = {
+        ...initialState,
+        priceData: samplePriceData,
+        annuities: [sampleAnnuity],
+      }
+
+      const action = { type: 'REMOVE_ANNUITY' as const, id: sampleAnnuity.id }
+      const newState = portfolioReducer(stateWithAnnuity, action)
+
+      expect(newState.annuities).toHaveLength(0)
+      expect(newState.cashFlows).toHaveLength(0)
+      expect(newState.calculationStatus).toBe('calculating')
+    })
+
+    it('should update an annuity', () => {
+      const stateWithAnnuity = {
+        ...initialState,
+        priceData: samplePriceData,
+        annuities: [sampleAnnuity],
+      }
+
+      const action = {
+        type: 'UPDATE_ANNUITY' as const,
+        annuity: { ...sampleAnnuity, principal: 150000 },
+      }
+      const newState = portfolioReducer(stateWithAnnuity, action)
+
+      expect(newState.annuities[0].principal).toBe(150000)
+      expect(newState.calculationStatus).toBe('calculating')
+    })
+
+    it('calculates cash flows and valuations', async () => {
+      const stateWithAnnuity = {
+        ...initialState,
+        priceData: samplePriceData,
+        annuities: [sampleAnnuity],
+      }
+      const mockDispatch = jest.fn()
+
+      await recalculatePortfolio(stateWithAnnuity, mockDispatch)
+
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: 'START_CALCULATION',
+        inputHash: expect.any(String),
+      })
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: 'CALCULATION_COMPLETE',
+        inputHash: expect.any(String),
+        cashFlows: expect.any(Array),
+        valuations: expect.any(Array),
+      })
+
+      const newState = mockDispatch.mock.calls[1][0]
+
       expect(newState.cashFlows.length).toBeGreaterThan(0)
 
       // Verify inflow
@@ -146,33 +205,6 @@ describe('Portfolio Management', () => {
       expect(
         newState.valuations.map((v) => Number(v.usdValue.toFixed(2)))
       ).toEqual(expectedUSDValues)
-    })
-
-    it('should remove an annuity', () => {
-      const stateWithAnnuity = {
-        ...initialState,
-        priceData: samplePriceData,
-        annuities: [sampleAnnuity],
-      }
-
-      const action = { type: 'REMOVE_ANNUITY' as const, id: sampleAnnuity.id }
-      const newState = portfolioReducer(stateWithAnnuity, action)
-
-      expect(newState.annuities).toHaveLength(0)
-      expect(newState.cashFlows).toHaveLength(0)
-    })
-
-    it('should recalculate portfolio', () => {
-      const stateWithAnnuity = {
-        ...initialState,
-        priceData: samplePriceData,
-        annuities: [sampleAnnuity],
-      }
-
-      const newState = recalculatePortfolio(stateWithAnnuity)
-
-      expect(newState.cashFlows).toHaveLength(5)
-      expect(newState.valuations).toHaveLength(5)
     })
   })
 })

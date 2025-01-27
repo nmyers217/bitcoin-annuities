@@ -17,6 +17,7 @@ function PortfolioChart({
   dataKey,
   valuePrefix,
 }: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any[]
   dataKey: string
   valuePrefix: string
@@ -35,7 +36,6 @@ function ChartCard({
   title,
   description,
   children,
-  isLoading,
   icon: Icon,
 }: {
   title: string
