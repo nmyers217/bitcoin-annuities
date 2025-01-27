@@ -1,6 +1,6 @@
 'use client'
 
-import { AnnuitiesCard } from '@/components/annuities-card'
+import { AnnuitiesCard } from '@/components/annuities-card/index'
 import { PortfolioChartCard } from '@/components/charts/portfolio-charts'
 import { PageHeader } from '@/components/page-header'
 import TradingViewWidget from '@/components/trading-view-widget'
