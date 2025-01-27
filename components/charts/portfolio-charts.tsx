@@ -33,16 +33,29 @@ function ChartCard({
   title,
   description,
   children,
+  isLoading,
 }: {
   title: string
   description: string
   children: React.ReactNode
+  isLoading: boolean
 }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </div>
+        <div className="h-2 w-2 rounded-full">
+          <div
+            className={`h-full w-full rounded-full ${
+              isLoading
+                ? 'animate-spin border-2 border-gray-300 border-t-primary'
+                : 'bg-green-500'
+            }`}
+          />
+        </div>
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
@@ -50,8 +63,9 @@ function ChartCard({
 }
 
 export function PortfolioChartCard() {
-  const { isLoading, error, refetch } = useBitcoinPrice()
+  const { isLoading: isPriceLoading, error, refetch } = useBitcoinPrice()
   const { state } = usePortfolio()
+  const isCalculating = state.calculationStatus === 'calculating'
 
   const usdData = state.valuations.map(({ date, usdValue }) => ({
     date,
@@ -84,8 +98,9 @@ export function PortfolioChartCard() {
       <ChartCard
         title="Portfolio Value in USD"
         description="Projected value based on current parameters"
+        isLoading={isCalculating}
       >
-        <AsyncChart isLoading={isLoading} error={error} onRetry={refetch}>
+        <AsyncChart isLoading={isPriceLoading} error={error} onRetry={refetch}>
           <PortfolioChart data={usdData} dataKey="usdValue" valuePrefix="$" />
         </AsyncChart>
       </ChartCard>
@@ -93,14 +108,19 @@ export function PortfolioChartCard() {
       <ChartCard
         title="Portfolio Value in BTC"
         description="Bitcoin holdings over time"
+        isLoading={isCalculating}
       >
-        <AsyncChart isLoading={isLoading} error={error} onRetry={refetch}>
+        <AsyncChart isLoading={isPriceLoading} error={error} onRetry={refetch}>
           <PortfolioChart data={btcData} dataKey="btcValue" valuePrefix="₿" />
         </AsyncChart>
       </ChartCard>
 
-      <ChartCard title="Monthly Income" description="Monthly USD payments">
-        <AsyncChart isLoading={isLoading} error={error} onRetry={refetch}>
+      <ChartCard
+        title="Monthly Income"
+        description="Monthly USD payments"
+        isLoading={isCalculating}
+      >
+        <AsyncChart isLoading={isPriceLoading} error={error} onRetry={refetch}>
           <PortfolioChart
             data={monthlyIncomeChartData}
             dataKey="usdValue"

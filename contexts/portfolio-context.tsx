@@ -62,15 +62,12 @@ export function usePortfolio() {
     throw new Error('usePortfolio must be used within a PortfolioProvider')
   }
 
-  const { data: priceData, isLoading: isPriceLoading } = useBitcoinPrice()
+  const { data: priceData, isLoading } = useBitcoinPrice()
 
   useEffect(() => {
     context.dispatch({ type: 'INITIALIZE', priceData: priceData ?? [] })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [priceData])
-
-  const isLoading =
-    isPriceLoading || context.state.calculationStatus === 'calculating'
 
   return {
     ...context,

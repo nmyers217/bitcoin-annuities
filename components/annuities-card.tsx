@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { addMonths, subMonths } from 'date-fns'
+import { Copy, Minus, Pencil, Plus, Trash2 } from 'lucide-react'
 
 import { AddAnnuityDialog } from '@/components/add-annuity-dialog'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,32 @@ export function AnnuitiesCard() {
 
   const handleDelete = (id: string) => {
     dispatch({ type: 'REMOVE_ANNUITY', id })
+  }
+
+  const handleDuplicate = (annuity: Annuity) => {
+    dispatch({
+      type: 'ADD_ANNUITY',
+      annuity: {
+        ...annuity,
+        id: crypto.randomUUID(),
+      },
+    })
+  }
+
+  const handleAdjustDate = (annuity: Annuity, months: number) => {
+    const currentDate = new Date(annuity.createdAt)
+    const newDate =
+      months > 0
+        ? addMonths(currentDate, months)
+        : subMonths(currentDate, Math.abs(months))
+
+    dispatch({
+      type: 'UPDATE_ANNUITY',
+      annuity: {
+        ...annuity,
+        createdAt: newDate.toISOString().split('T')[0],
+      },
+    })
   }
 
   const getCreationPrice = (annuity: Annuity) => {
@@ -107,6 +134,27 @@ export function AnnuitiesCard() {
                       </p>
                     </div>
                     <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDuplicate(annuity)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleAdjustDate(annuity, -1)}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleAdjustDate(annuity, 1)}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
