@@ -1,6 +1,6 @@
 import * as Comlink from 'comlink'
 import type { Remote } from 'comlink'
-import { addMonths, isSameDay, parseISO, startOfMonth } from 'date-fns'
+import { addMonths, format, isSameDay, parseISO, startOfMonth } from 'date-fns'
 
 import { type PriceData } from '@/lib/api'
 
@@ -230,15 +230,9 @@ export async function recalculatePortfolio(
 
 export function parsePortfolioDate(date: string | Date): Date {
   if (date instanceof Date) return date
-
-  // Handle MM/DD/YYYY format from API
-  if (date.includes('/')) {
-    const [month, day, year] = date.split('/')
-    return new Date(Number(year), Number(month) - 1, Number(day))
-  }
-
-  // Handle YYYY-MM-DD format
-  return parseISO(date)
+  return date.includes('/')
+    ? parseISO(date.split('/').reverse().join('-'))
+    : parseISO(date)
 }
 
 export function* iterateMonths(
@@ -257,9 +251,6 @@ export function findPriceData(
   const result = priceData.find((p) =>
     isSameDay(parsePortfolioDate(p.date), date)
   )
-  // if (!result) {
-  //   console.warn(`No price data found for date ${date}`)
-  // }
   return result ?? null
 }
 
@@ -280,7 +271,7 @@ export function calculateInflow(
       annuity.principalCurrency === 'BTC'
         ? annuity.principal
         : annuity.principal / creationPrice.price,
-    date: creationDate.toISOString().split('T')[0],
+    date: format(creationDate, 'yyyy-MM-dd'),
     annuityId: annuity.id,
     type: 'inflow',
   }
@@ -314,7 +305,7 @@ export function calculateOutflows(
     if (!amortizationDatePrice) continue
 
     outflows.push({
-      date: amortizationDate.toISOString().split('T')[0],
+      date: format(amortizationDate, 'yyyy-MM-dd'),
       annuityId: annuity.id,
       type: 'outflow',
       usdAmount: monthlyPaymentUSD,
@@ -353,6 +344,19 @@ function calculateValuations(
       date: cashFlow.date,
       btcValue: currentBalance,
       usdValue: currentBalance * price.price,
+    })
+  }
+
+  // Add a valuation for the final data point, because users will want to know the current value of their portfolio
+  const lastPriceData = priceData.at(-1)
+  const lastPriceNotInValuations = valuations.find(
+    (valuation) => valuation.date === lastPriceData?.date
+  )
+  if (!lastPriceNotInValuations) {
+    valuations.push({
+      date: lastPriceData?.date ?? '',
+      btcValue: currentBalance,
+      usdValue: currentBalance * (lastPriceData?.price ?? 0),
     })
   }
 

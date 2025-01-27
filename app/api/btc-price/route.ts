@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache'
 import { NextResponse } from 'next/server'
+import { format, fromUnixTime } from 'date-fns'
 
 async function fetchBitcoinPriceData() {
   // Returns daily price data since 2009
@@ -14,7 +15,7 @@ async function fetchBitcoinPriceData() {
   }
 
   return data.values.map(({ x, y }: { x: number; y: number }) => ({
-    date: new Date(x * 1000).toLocaleDateString('en-US'),
+    date: format(fromUnixTime(x), 'yyyy-MM-dd'),
     price: y,
   }))
 }
@@ -23,10 +24,10 @@ const getCachedBitcoinPrice = unstable_cache(
   async () => {
     return await fetchBitcoinPriceData()
   },
-  ['bitcoin-price'],
+  ['bitcoin-price-v2'],
   {
     revalidate: 43200, // 12 hours
-    tags: ['bitcoin-price'],
+    tags: ['bitcoin-price-v2'],
   }
 )
 

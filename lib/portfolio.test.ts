@@ -19,6 +19,7 @@ describe('Portfolio Management', () => {
     { date: '2024-04-01', price: 43000 },
     { date: '2024-05-01', price: 41000 },
     { date: '2024-06-01', price: 40000 },
+    { date: '2024-06-15', price: 44000 },
   ]
 
   const sampleAnnuity: Annuity = {
@@ -163,31 +164,39 @@ describe('Portfolio Management', () => {
       expect(newState.cashFlows.length).toBeGreaterThan(0)
 
       // Verify inflow
-      const inflow = newState.cashFlows.find((cf) => cf.type === 'inflow')
+      const inflow = newState.cashFlows.find(
+        (cf: { type: string }) => cf.type === 'inflow'
+      )
       expect(inflow).toBeDefined()
       expect(inflow?.usdAmount).toBe(100000)
       expect(inflow?.btcAmount).toBe(2.5) // 100000 / 40000
 
       // Verify outflows
-      const outflows = newState.cashFlows.filter((cf) => cf.type === 'outflow')
+      const outflows = newState.cashFlows.filter(
+        (cf: { type: string }) => cf.type === 'outflow'
+      )
       expect(outflows).toHaveLength(4)
       // Check outflow dates
-      expect(outflows.map((cf) => cf.date)).toEqual([
+      expect(outflows.map((cf: { date: unknown }) => cf.date)).toEqual([
         '2024-02-01',
         '2024-03-01',
         '2024-04-01',
         '2024-05-01',
       ])
-      expect(outflows.map((cf) => cf.btcAmount)).toEqual([
+      expect(
+        outflows.map((cf: { btcAmount: unknown }) => cf.btcAmount)
+      ).toEqual([
         0.6101930807420477, 0.5695135420259112, 0.5960025439806047,
         0.6250758388089269,
       ])
-      expect(outflows.map((cf) => cf.usdAmount)).toEqual([
+      expect(
+        outflows.map((cf: { usdAmount: unknown }) => cf.usdAmount)
+      ).toEqual([
         25628.109391166003, 25628.109391166003, 25628.109391166003,
         25628.109391166003,
       ])
 
-      expect(newState.valuations).toHaveLength(5)
+      expect(newState.valuations).toHaveLength(6)
 
       // Calculate expected BTC values
       const expectedBTCValues = [
@@ -196,14 +205,21 @@ describe('Portfolio Management', () => {
         1.32, // After Mar payment: 1.89 - (25628/45000)
         0.72, // After Apr payment: 1.32 - (25628/43000)
         0.1, // After May payment: 0.72 - (25628/41000)
+        0.1, // A Valuation for the final data point
       ]
-      const expectedUSDValues = [100000, 79371.89, 59413.2, 31144.51, 4067.81]
+      const expectedUSDValues = [
+        100000, 79371.89, 59413.2, 31144.51, 4067.81, 4365.46,
+      ]
 
       expect(
-        newState.valuations.map((v) => Number(v.btcValue.toFixed(2)))
+        newState.valuations.map((v: { btcValue: number }) =>
+          Number(v.btcValue.toFixed(2))
+        )
       ).toEqual(expectedBTCValues)
       expect(
-        newState.valuations.map((v) => Number(v.usdValue.toFixed(2)))
+        newState.valuations.map((v: { usdValue: number }) =>
+          Number(v.usdValue.toFixed(2))
+        )
       ).toEqual(expectedUSDValues)
     })
   })

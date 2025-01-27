@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { format } from 'date-fns'
 import { useForm } from 'react-hook-form'
 import * as z from 'zod'
 
@@ -57,7 +58,7 @@ export function AddAnnuityDialog({
   const form = useForm<z.infer<typeof annuitySchema>>({
     resolver: zodResolver(annuitySchema),
     defaultValues: {
-      createdAt: new Date().toISOString().split('T')[0],
+      createdAt: format(new Date(), 'yyyy-MM-dd'),
       principal: 100000,
       principalCurrency: 'USD',
       amortizationRate: 0.12,
@@ -68,7 +69,7 @@ export function AddAnnuityDialog({
   useEffect(() => {
     if (editAnnuity) {
       form.reset({
-        createdAt: editAnnuity.createdAt.split('T')[0],
+        createdAt: editAnnuity.createdAt,
         principal: editAnnuity.principal,
         principalCurrency: editAnnuity.principalCurrency,
         amortizationRate: editAnnuity.amortizationRate,

@@ -1,3 +1,4 @@
+import { parseISO } from 'date-fns'
 import { Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
 
 import { ChartContainer } from '@/components/ui/chart'
@@ -28,7 +29,7 @@ export function BaseLineChart({
           dataKey="date"
           interval="preserveStartEnd"
           tickFormatter={(value) => {
-            const date = new Date(value)
+            const date = parseISO(value)
             return date.toLocaleDateString('en-US', {
               month: 'short',
               year: 'numeric',
@@ -48,7 +49,7 @@ export function BaseLineChart({
             label,
           ]}
           labelFormatter={(label) => {
-            const date = new Date(label)
+            const date = parseISO(label)
             return date.toLocaleDateString('en-US', {
               month: 'long',
               day: 'numeric',

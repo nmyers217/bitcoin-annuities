@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { addMonths, subMonths } from 'date-fns'
+import { addMonths, differenceInMonths, format, subMonths } from 'date-fns'
 import { Copy, Landmark, Minus, Pencil, Plus, Trash2 } from 'lucide-react'
 
 import { AddAnnuityDialog } from '@/components/add-annuity-dialog'
@@ -35,7 +35,7 @@ export function AnnuitiesCard() {
   }
 
   const handleAdjustDate = (annuity: Annuity, months: number) => {
-    const currentDate = new Date(annuity.createdAt)
+    const currentDate = parsePortfolioDate(annuity.createdAt)
     const newDate =
       months > 0
         ? addMonths(currentDate, months)
@@ -45,7 +45,7 @@ export function AnnuitiesCard() {
       type: 'UPDATE_ANNUITY',
       annuity: {
         ...annuity,
-        createdAt: newDate.toISOString().split('T')[0],
+        createdAt: format(newDate, 'yyyy-MM-dd'),
       },
     })
   }
@@ -101,7 +101,7 @@ export function AnnuitiesCard() {
                       </p>
                       <p className="text-sm text-muted-foreground">
                         Started{' '}
-                        {new Date(annuity.createdAt).toLocaleDateString()} •{' '}
+                        {format(parsePortfolioDate(annuity.createdAt), 'PP')} •{' '}
                         {annuity.termMonths} months •{' '}
                         {(annuity.amortizationRate * 100).toFixed(1)}% APR
                         <span className="ml-2 inline-flex items-center">
@@ -109,9 +109,8 @@ export function AnnuitiesCard() {
                             const startDate = parsePortfolioDate(
                               annuity.createdAt
                             )
-                            const monthsElapsed = Math.floor(
-                              (new Date().getTime() - startDate.getTime()) /
-                                (1000 * 60 * 60 * 24 * 30)
+                            const monthsElapsed = Math.abs(
+                              differenceInMonths(new Date(), startDate)
                             )
                             const monthsRemaining = Math.max(
                               0,
