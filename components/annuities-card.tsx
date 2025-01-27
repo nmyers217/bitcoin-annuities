@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { usePortfolio } from '@/contexts/portfolio-context'
 import { Annuity, findPriceData, parsePortfolioDate } from '@/lib/portfolio'
 
@@ -50,6 +51,14 @@ export function AnnuitiesCard() {
     })
   }
 
+  const handlePortfolioStartDateChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const newDate = e.target.value
+    if (!newDate) return
+    dispatch({ type: 'SET_PORTFOLIO_START_DATE', date: newDate })
+  }
+
   const getCreationPrice = (annuity: Annuity) => {
     const price = findPriceData(
       parsePortfolioDate(annuity.createdAt),
@@ -62,9 +71,24 @@ export function AnnuitiesCard() {
     <>
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <Landmark className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>Active Annuities</CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Landmark className="h-5 w-5 text-muted-foreground" />
+              <CardTitle>Active Annuities</CardTitle>
+            </div>
+            {state.portfolioStartDate && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Portfolio Start:
+                </span>
+                <Input
+                  type="date"
+                  value={state.portfolioStartDate}
+                  onChange={handlePortfolioStartDateChange}
+                  className="w-auto"
+                />
+              </div>
+            )}
           </div>
           <CardDescription>
             Manage your current annuity contracts

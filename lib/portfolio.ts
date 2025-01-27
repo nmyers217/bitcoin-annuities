@@ -1,6 +1,13 @@
 import * as Comlink from 'comlink'
 import type { Remote } from 'comlink'
-import { addMonths, format, isSameDay, parseISO, startOfMonth } from 'date-fns'
+import {
+  addMonths,
+  differenceInMonths,
+  format,
+  isSameDay,
+  parseISO,
+  startOfMonth,
+} from 'date-fns'
 
 import { type PriceData } from '@/lib/api'
 
@@ -40,6 +47,7 @@ export type PortfolioState = {
   valuations: PortfolioValuation[]
   calculationStatus: CalculationStatus
   lastCalculationInputHash?: string
+  portfolioStartDate: string | null
 }
 
 type Worker = {
@@ -75,6 +83,7 @@ export type PortfolioAction =
       inputHash: string
     }
   | { type: 'RESTORE'; state: PortfolioState }
+  | { type: 'SET_PORTFOLIO_START_DATE'; date: string }
 
 // Simple cache for memoization
 const calculationCache = new Map<
@@ -113,12 +122,41 @@ export function portfolioReducer(
             ? 'calculating'
             : 'idle',
       }
-    case 'ADD_ANNUITY':
+    case 'ADD_ANNUITY': {
+      const newAnnuities = [...state.annuities, action.annuity]
+      const oldestDate = newAnnuities.reduce(
+        (oldest, annuity) =>
+          annuity.createdAt < oldest ? annuity.createdAt : oldest,
+        newAnnuities[0].createdAt
+      )
       return {
         ...state,
-        annuities: [...state.annuities, action.annuity],
+        annuities: newAnnuities,
+        portfolioStartDate: state.portfolioStartDate || oldestDate,
         calculationStatus: 'calculating',
       }
+    }
+    case 'SET_PORTFOLIO_START_DATE': {
+      if (!state.portfolioStartDate || !state.annuities.length) return state
+
+      const monthsDiff = differenceInMonths(
+        parsePortfolioDate(action.date),
+        parsePortfolioDate(state.portfolioStartDate)
+      )
+
+      return {
+        ...state,
+        portfolioStartDate: action.date,
+        annuities: state.annuities.map((annuity) => ({
+          ...annuity,
+          createdAt: format(
+            addMonths(parsePortfolioDate(annuity.createdAt), monthsDiff),
+            'yyyy-MM-dd'
+          ),
+        })),
+        calculationStatus: 'calculating',
+      }
+    }
     case 'REMOVE_ANNUITY':
       return {
         ...state,
@@ -152,13 +190,23 @@ export function portfolioReducer(
         }
       }
       return state
-    case 'RESTORE':
+    case 'RESTORE': {
+      const sanitizedState = sanitizePortfolioState(action.state)
+      const oldestDate = sanitizedState.annuities.length
+        ? sanitizedState.annuities.reduce(
+            (oldest, annuity) =>
+              annuity.createdAt < oldest ? annuity.createdAt : oldest,
+            sanitizedState.annuities[0].createdAt
+          )
+        : null
+
       return {
-        ...sanitizePortfolioState(action.state),
-        // Don't trigger calculation until we have price data
+        ...sanitizedState,
+        portfolioStartDate: oldestDate,
         calculationStatus: state.priceData.length > 0 ? 'calculating' : 'idle',
         lastCalculationInputHash: undefined,
       }
+    }
     default:
       return state
   }
@@ -374,5 +422,6 @@ export function sanitizePortfolioState(
     valuations: state.valuations ?? [],
     calculationStatus: state.calculationStatus ?? 'idle',
     lastCalculationInputHash: state.lastCalculationInputHash,
+    portfolioStartDate: state.portfolioStartDate ?? null,
   }
 }
