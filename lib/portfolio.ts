@@ -96,12 +96,22 @@ export function portfolioReducer(
   state: PortfolioState,
   action: PortfolioAction
 ): PortfolioState {
+  console.log('Portfolio reducer:', action.type, {
+    priceDataLength: state.priceData.length,
+    annuitiesLength: state.annuities.length,
+    status: state.calculationStatus,
+  })
+
   switch (action.type) {
     case 'INITIALIZE':
       return {
         ...state,
         priceData: action.priceData,
-        calculationStatus: 'calculating',
+        // Only trigger calculation if we have both price data and annuities
+        calculationStatus:
+          action.priceData.length > 0 && state.annuities.length > 0
+            ? 'calculating'
+            : 'idle',
       }
     case 'ADD_ANNUITY':
       return {
@@ -145,7 +155,8 @@ export function portfolioReducer(
     case 'RESTORE':
       return {
         ...sanitizePortfolioState(action.state),
-        calculationStatus: 'calculating',
+        // Don't trigger calculation until we have price data
+        calculationStatus: state.priceData.length > 0 ? 'calculating' : 'idle',
         lastCalculationInputHash: undefined,
       }
     default:
@@ -174,6 +185,12 @@ export async function recalculatePortfolio(
   state: PortfolioState,
   dispatch: (action: PortfolioAction) => void
 ): Promise<void> {
+  console.log('Recalculate portfolio:', {
+    priceDataLength: state.priceData.length,
+    annuitiesLength: state.annuities.length,
+    status: state.calculationStatus,
+  })
+
   const inputHash = calculateInputHash(state.priceData, state.annuities)
 
   if (inputHash === state.lastCalculationInputHash) {

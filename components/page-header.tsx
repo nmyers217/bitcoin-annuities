@@ -1,23 +1,40 @@
 'use client'
 
 import { useState } from 'react'
-import { Copy, Wallet } from 'lucide-react'
+import { Copy, Share2, Wallet } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { useToast } from '@/components/ui/use-toast'
 import { siteConfig } from '@/config/site'
+import { usePortfolio } from '@/contexts/portfolio-context'
+import { useToast } from '@/hooks/use-toast'
+import { serializeAnnuities } from '@/lib/url-state'
 import { AddAnnuityDialog } from './add-annuity-dialog'
 
 export function PageHeader() {
   const { toast } = useToast()
   const [addAnnuityOpen, setAddAnnuityOpen] = useState(false)
   const { address } = siteConfig.lightning
+  const { state } = usePortfolio()
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(address)
     toast({
       description: 'Lightning address copied to clipboard',
       duration: 2000,
+    })
+  }
+
+  const handleShare = () => {
+    const params = new URLSearchParams()
+    params.set('annuities', serializeAnnuities(state.annuities))
+    const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`
+
+    navigator.clipboard.writeText(url)
+    toast({
+      title: 'Link Copied',
+      description: 'Share link copied to clipboard',
+      duration: 5000,
+      variant: 'default',
     })
   }
 
@@ -69,8 +86,12 @@ export function PageHeader() {
         </div>
       </div>
       <div className="flex gap-3">
+        <Button onClick={handleShare} variant="outline">
+          <Share2 className="mr-2 h-5 w-5" />
+          Share
+        </Button>
         <Button onClick={() => setAddAnnuityOpen(true)} variant="default">
-          <Wallet className="mr-2 h-4 w-4" />
+          <Wallet className="mr-2 h-5 w-5" />
           Add Annuity
         </Button>
         <AddAnnuityDialog

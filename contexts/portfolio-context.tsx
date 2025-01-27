@@ -8,6 +8,7 @@ import {
   type PortfolioAction,
   type PortfolioState,
 } from '@/lib/portfolio'
+import { deserializeAnnuities } from '@/lib/url-state'
 
 const initialState: PortfolioState = {
   priceData: [],
@@ -29,13 +30,23 @@ function serializeState(state: PortfolioState): string {
 export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(portfolioReducer, initialState)
 
-  // Sync with localStorage
   useEffect(() => {
-    const savedState = localStorage.getItem('portfolioState')
-    const initialState = savedState
-      ? sanitizePortfolioState(JSON.parse(savedState))
-      : sanitizePortfolioState({})
-    dispatch({ type: 'RESTORE', state: initialState })
+    const params = new URLSearchParams(window.location.search)
+    const annuitiesParam = params.get('annuities')
+
+    if (annuitiesParam) {
+      const annuities = deserializeAnnuities(annuitiesParam)
+      dispatch({
+        type: 'RESTORE',
+        state: { ...initialState, annuities },
+      })
+    } else {
+      const savedState = localStorage.getItem('portfolioState')
+      const initialState = savedState
+        ? sanitizePortfolioState(JSON.parse(savedState))
+        : sanitizePortfolioState({})
+      dispatch({ type: 'RESTORE', state: initialState })
+    }
   }, [])
 
   useEffect(() => {
