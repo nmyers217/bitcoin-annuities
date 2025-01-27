@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useReducer } from 'react'
 
 import { useBitcoinPrice } from '@/hooks/use-bitcoin-price'
+import { useMonteCarlo } from '@/hooks/use-monte-carlo'
 import {
   portfolioReducer,
   recalculatePortfolio,
@@ -16,6 +17,8 @@ const initialState: PortfolioState = {
   cashFlows: [],
   valuations: [],
   calculationStatus: 'idle',
+  portfolioStartDate: null,
+  lastCalculationInputHash: undefined,
 }
 
 const PortfolioContext = createContext<{
@@ -73,15 +76,23 @@ export function usePortfolio() {
     throw new Error('usePortfolio must be used within a PortfolioProvider')
   }
 
-  const { data: priceData, isLoading } = useBitcoinPrice()
+  const { data: priceData, isLoading: isPriceLoading } = useBitcoinPrice()
+  const { isLoading: isMonteCarloLoading } = useMonteCarlo()
 
+  // Only dispatch price data updates when it changes and is not empty
   useEffect(() => {
-    context.dispatch({ type: 'INITIALIZE', priceData: priceData ?? [] })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [priceData])
+    if (
+      priceData &&
+      priceData.length > 0 &&
+      (!context.state.priceData.length ||
+        context.state.priceData[0].date !== priceData[0].date)
+    ) {
+      context.dispatch({ type: 'INITIALIZE', priceData })
+    }
+  }, [context, priceData])
 
   return {
     ...context,
-    isLoading,
+    isLoading: isPriceLoading || isMonteCarloLoading,
   }
 }

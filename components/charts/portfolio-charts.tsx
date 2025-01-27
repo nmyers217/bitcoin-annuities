@@ -10,6 +10,7 @@ import {
 import { usePortfolio } from '@/contexts/portfolio-context'
 import { useBitcoinPrice } from '@/hooks/use-bitcoin-price'
 import { BaseLineChart } from './base-line-chart'
+import { MonteCarloChartCard } from './monte-carlo-chart'
 import { AsyncChart } from './shared'
 
 function PortfolioChart({
@@ -100,43 +101,58 @@ export function PortfolioChartCard() {
     .sort((a, b) => a.date.localeCompare(b.date))
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <ChartCard
-        title="Portfolio Value in USD"
-        description="Projected value based on current parameters"
-        isLoading={isCalculating}
-        icon={BanknoteIcon}
-      >
-        <AsyncChart isLoading={isPriceLoading} error={error} onRetry={refetch}>
-          <PortfolioChart data={usdData} dataKey="usdValue" valuePrefix="$" />
-        </AsyncChart>
-      </ChartCard>
+    <div className="space-y-6">
+      <MonteCarloChartCard />
+      <div className="grid gap-6 lg:grid-cols-3">
+        <ChartCard
+          title="Portfolio Value in USD"
+          description="Projected value based on current parameters"
+          isLoading={isCalculating}
+          icon={BanknoteIcon}
+        >
+          <AsyncChart
+            isLoading={isPriceLoading}
+            error={error}
+            onRetry={refetch}
+          >
+            <PortfolioChart data={usdData} dataKey="usdValue" valuePrefix="$" />
+          </AsyncChart>
+        </ChartCard>
 
-      <ChartCard
-        title="Portfolio Value in BTC"
-        description="Bitcoin holdings over time"
-        isLoading={isCalculating}
-        icon={Bitcoin}
-      >
-        <AsyncChart isLoading={isPriceLoading} error={error} onRetry={refetch}>
-          <PortfolioChart data={btcData} dataKey="btcValue" valuePrefix="₿" />
-        </AsyncChart>
-      </ChartCard>
+        <ChartCard
+          title="Portfolio Value in BTC"
+          description="Bitcoin holdings over time"
+          isLoading={isCalculating}
+          icon={Bitcoin}
+        >
+          <AsyncChart
+            isLoading={isPriceLoading}
+            error={error}
+            onRetry={refetch}
+          >
+            <PortfolioChart data={btcData} dataKey="btcValue" valuePrefix="₿" />
+          </AsyncChart>
+        </ChartCard>
 
-      <ChartCard
-        title="Monthly Income"
-        description="Monthly USD payments"
-        isLoading={isCalculating}
-        icon={CreditCard}
-      >
-        <AsyncChart isLoading={isPriceLoading} error={error} onRetry={refetch}>
-          <PortfolioChart
-            data={monthlyIncomeChartData}
-            dataKey="usdValue"
-            valuePrefix="$"
-          />
-        </AsyncChart>
-      </ChartCard>
+        <ChartCard
+          title="Monthly Income"
+          description="Monthly USD payments"
+          isLoading={isCalculating}
+          icon={CreditCard}
+        >
+          <AsyncChart
+            isLoading={isPriceLoading}
+            error={error}
+            onRetry={refetch}
+          >
+            <PortfolioChart
+              data={monthlyIncomeChartData}
+              dataKey="usdValue"
+              valuePrefix="$"
+            />
+          </AsyncChart>
+        </ChartCard>
+      </div>
     </div>
   )
 }

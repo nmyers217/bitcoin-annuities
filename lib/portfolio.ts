@@ -36,14 +36,10 @@ export interface PortfolioValuation {
 
 type CalculationStatus = 'idle' | 'calculating'
 
-export type PortfolioState = {
-  // First the price data is fetched from the API
+export interface PortfolioState {
   priceData: PriceData[]
-  // Then the annuities are added
   annuities: Annuity[]
-  // Then the cash flows are calculated
   cashFlows: CashFlow[]
-  // Then the valuations are calculated
   valuations: PortfolioValuation[]
   calculationStatus: CalculationStatus
   lastCalculationInputHash?: string
@@ -82,8 +78,11 @@ export type PortfolioAction =
       valuations: PortfolioValuation[]
       inputHash: string
     }
-  | { type: 'RESTORE'; state: PortfolioState }
+  | { type: 'RESTORE'; state: Partial<PortfolioState> }
   | { type: 'SET_PORTFOLIO_START_DATE'; date: string }
+  | { type: 'RECALCULATE' }
+  | { type: 'SET_CASH_FLOWS'; cashFlows: CashFlow[] }
+  | { type: 'SET_VALUATIONS'; valuations: PortfolioValuation[] }
 
 // Simple cache for memoization
 const calculationCache = new Map<
@@ -116,11 +115,7 @@ export function portfolioReducer(
       return {
         ...state,
         priceData: action.priceData,
-        // Only trigger calculation if we have both price data and annuities
-        calculationStatus:
-          action.priceData.length > 0 && state.annuities.length > 0
-            ? 'calculating'
-            : 'idle',
+        calculationStatus: 'calculating',
       }
     case 'ADD_ANNUITY': {
       const newAnnuities = [...state.annuities, action.annuity]
@@ -133,27 +128,6 @@ export function portfolioReducer(
         ...state,
         annuities: newAnnuities,
         portfolioStartDate: state.portfolioStartDate || oldestDate,
-        calculationStatus: 'calculating',
-      }
-    }
-    case 'SET_PORTFOLIO_START_DATE': {
-      if (!state.portfolioStartDate || !state.annuities.length) return state
-
-      const monthsDiff = differenceInMonths(
-        parsePortfolioDate(action.date),
-        parsePortfolioDate(state.portfolioStartDate)
-      )
-
-      return {
-        ...state,
-        portfolioStartDate: action.date,
-        annuities: state.annuities.map((annuity) => ({
-          ...annuity,
-          createdAt: format(
-            addMonths(parsePortfolioDate(annuity.createdAt), monthsDiff),
-            'yyyy-MM-dd'
-          ),
-        })),
         calculationStatus: 'calculating',
       }
     }
@@ -205,6 +179,44 @@ export function portfolioReducer(
         portfolioStartDate: oldestDate,
         calculationStatus: state.priceData.length > 0 ? 'calculating' : 'idle',
         lastCalculationInputHash: undefined,
+      }
+    }
+    case 'RECALCULATE':
+      return {
+        ...state,
+        calculationStatus: 'calculating',
+      }
+    case 'SET_CASH_FLOWS':
+      return {
+        ...state,
+        cashFlows: action.cashFlows,
+        calculationStatus: 'calculating',
+      }
+    case 'SET_VALUATIONS':
+      return {
+        ...state,
+        valuations: action.valuations,
+        calculationStatus: 'calculating',
+      }
+    case 'SET_PORTFOLIO_START_DATE': {
+      if (!state.portfolioStartDate || !state.annuities.length) return state
+
+      const monthsDiff = differenceInMonths(
+        parsePortfolioDate(action.date),
+        parsePortfolioDate(state.portfolioStartDate)
+      )
+
+      return {
+        ...state,
+        portfolioStartDate: action.date,
+        annuities: state.annuities.map((annuity) => ({
+          ...annuity,
+          createdAt: format(
+            addMonths(parsePortfolioDate(annuity.createdAt), monthsDiff),
+            'yyyy-MM-dd'
+          ),
+        })),
+        calculationStatus: 'calculating',
       }
     }
     default:
