@@ -44,7 +44,7 @@ export function PageHeader() {
         <h1 className="text-4xl font-bold">₿itcoin Annuity Tracker</h1>
         <div className="space-y-2">
           <p className="text-muted-foreground">
-            🛞 Visualize and execute the{' '}
+            🛞 Visualize and explore the{' '}
             <a
               href={siteConfig.links.substackArticle}
               className="text-primary hover:underline"

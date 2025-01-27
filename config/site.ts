@@ -1,7 +1,7 @@
 export const siteConfig = {
   links: {
     substackArticle:
-      'https://freedomfromfiat.substack.com/i/155126910/the-bitcoin-growth-flywheel',
+      'https://open.substack.com/pub/freedomfromfiat/p/financial-data-structures-in-the-7d6',
     substackHome: 'https://freedomfromfiat.substack.com/',
   },
   lightning: {
