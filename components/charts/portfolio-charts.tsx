@@ -1,3 +1,5 @@
+import { BanknoteIcon, Bitcoin, CreditCard } from 'lucide-react'
+
 import {
   Card,
   CardContent,
@@ -34,28 +36,22 @@ function ChartCard({
   description,
   children,
   isLoading,
+  icon: Icon,
 }: {
   title: string
   description: string
   children: React.ReactNode
   isLoading: boolean
+  icon?: React.ComponentType<{ className?: string }>
 }) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          {Icon && <Icon className="h-5 w-5 text-muted-foreground" />}
           <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
         </div>
-        <div className="h-2 w-2 rounded-full">
-          <div
-            className={`h-full w-full rounded-full ${
-              isLoading
-                ? 'animate-spin border-2 border-gray-300 border-t-primary'
-                : 'bg-green-500'
-            }`}
-          />
-        </div>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
@@ -99,6 +95,7 @@ export function PortfolioChartCard() {
         title="Portfolio Value in USD"
         description="Projected value based on current parameters"
         isLoading={isCalculating}
+        icon={BanknoteIcon}
       >
         <AsyncChart isLoading={isPriceLoading} error={error} onRetry={refetch}>
           <PortfolioChart data={usdData} dataKey="usdValue" valuePrefix="$" />
@@ -109,6 +106,7 @@ export function PortfolioChartCard() {
         title="Portfolio Value in BTC"
         description="Bitcoin holdings over time"
         isLoading={isCalculating}
+        icon={Bitcoin}
       >
         <AsyncChart isLoading={isPriceLoading} error={error} onRetry={refetch}>
           <PortfolioChart data={btcData} dataKey="btcValue" valuePrefix="₿" />
@@ -119,6 +117,7 @@ export function PortfolioChartCard() {
         title="Monthly Income"
         description="Monthly USD payments"
         isLoading={isCalculating}
+        icon={CreditCard}
       >
         <AsyncChart isLoading={isPriceLoading} error={error} onRetry={refetch}>
           <PortfolioChart

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { addMonths, subMonths } from 'date-fns'
-import { Copy, Minus, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Copy, Landmark, Minus, Pencil, Plus, Trash2 } from 'lucide-react'
 
 import { AddAnnuityDialog } from '@/components/add-annuity-dialog'
 import { Button } from '@/components/ui/button'
@@ -62,7 +62,10 @@ export function AnnuitiesCard() {
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Active Annuities</CardTitle>
+          <div className="flex items-center gap-2">
+            <Landmark className="h-5 w-5 text-muted-foreground" />
+            <CardTitle>Active Annuities</CardTitle>
+          </div>
           <CardDescription>
             Manage your current annuity contracts
           </CardDescription>
