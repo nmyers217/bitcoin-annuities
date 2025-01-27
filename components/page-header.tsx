@@ -1,18 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Copy, FileText, Wallet } from 'lucide-react'
+import { Copy, Wallet } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { siteConfig } from '@/config/site'
 import { AddAnnuityDialog } from './add-annuity-dialog'
-import { CashFlowReport } from './cash-flow-report'
 
 export function PageHeader() {
   const { toast } = useToast()
   const [addAnnuityOpen, setAddAnnuityOpen] = useState(false)
-  const [reportOpen, setReportOpen] = useState(false)
   const { address } = siteConfig.lightning
 
   const copyToClipboard = () => {
@@ -71,11 +69,7 @@ export function PageHeader() {
         </div>
       </div>
       <div className="flex gap-3">
-        <Button variant="outline" onClick={() => setReportOpen(true)}>
-          <FileText className="mr-2 h-4 w-4" />
-          View Report
-        </Button>
-        <Button onClick={() => setAddAnnuityOpen(true)}>
+        <Button onClick={() => setAddAnnuityOpen(true)} variant="default">
           <Wallet className="mr-2 h-4 w-4" />
           Add Annuity
         </Button>
@@ -83,7 +77,6 @@ export function PageHeader() {
           open={addAnnuityOpen}
           onOpenChange={setAddAnnuityOpen}
         />
-        <CashFlowReport open={reportOpen} onOpenChange={setReportOpen} />
       </div>
     </div>
   )
