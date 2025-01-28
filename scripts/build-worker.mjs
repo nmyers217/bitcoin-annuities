@@ -20,10 +20,15 @@ async function buildWorker() {
       external: [],
       loader: {
         '.ts': 'ts',
+        '.js': 'js',
+        '.json': 'json',
       },
       define: {
         'process.env.NODE_ENV': '"production"',
       },
+      resolveExtensions: ['.ts', '.js', '.json'],
+      mainFields: ['browser', 'module', 'main'],
+      logLevel: 'info',
     })
 
     console.log('Worker build complete')
