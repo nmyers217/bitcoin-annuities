@@ -2,12 +2,16 @@ import { format } from 'date-fns'
 import { Banknote, Copy, Minus, Pencil, Plus, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Annuity, parsePortfolioDate } from '@/lib/portfolio'
+import { parsePortfolioDate } from '@/lib/calculations'
+import { type Annuity } from '@/lib/types'
 import { RemainingMonths } from './remaining-months'
 
 interface AnnuityItemProps {
   annuity: Annuity
-  creationPrice: number
+  creationPrice: {
+    usd: number
+    btc: number
+  }
   monthlyPayment: number
   onDelete: (id: string) => void
   onDuplicate: (annuity: Annuity) => void
@@ -30,16 +34,12 @@ export function AnnuityItem({
         <p className="flex items-center gap-3 font-medium">
           <span className="flex items-center gap-1">
             <span className="text-sm">₿</span>
-            {annuity.principalCurrency === 'BTC'
-              ? annuity.principal.toFixed(8)
-              : (annuity.principal / creationPrice).toFixed(8)}
+            {creationPrice.btc.toFixed(8)}
           </span>
           <span className="text-muted-foreground">•</span>
           <span className="flex items-center gap-1">
             <span className="text-sm">$</span>
-            {annuity.principalCurrency === 'USD'
-              ? annuity.principal.toLocaleString()
-              : (annuity.principal * creationPrice).toLocaleString()}
+            {creationPrice.usd.toLocaleString()}
           </span>
           <span className="text-muted-foreground">•</span>
           <span className="flex items-center gap-1">

@@ -6,7 +6,8 @@ import { addMonths, format, subMonths } from 'date-fns'
 import { AddAnnuityDialog } from '@/components/add-annuity-dialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { usePortfolio } from '@/contexts/portfolio-context'
-import { Annuity, findPriceData, parsePortfolioDate } from '@/lib/portfolio'
+import { parsePortfolioDate } from '@/lib/calculations'
+import { type Annuity } from '@/lib/types'
 import { AnnuitiesList } from './annuities-list'
 import { AnnuitiesCardHeader } from './card-header'
 
@@ -27,11 +28,15 @@ export function AnnuitiesCard() {
   const [editingAnnuity, setEditingAnnuity] = useState<Annuity | undefined>()
 
   const getCreationPrice = (annuity: Annuity) => {
-    const price = findPriceData(
-      parsePortfolioDate(annuity.createdAt),
-      state.priceData
+    // Search for the first inflow in the cash flows
+    const inflow = state.scenarios.average?.cashFlows.find(
+      (cf) => cf.type === 'inflow' && cf.annuityId === annuity.id
     )
-    return price?.price ?? 0
+    // TODO: Should we support showing different prices for different scenarios?
+    return {
+      usd: inflow?.usdAmount ?? 0,
+      btc: inflow?.btcAmount ?? 0,
+    }
   }
 
   const handlers = {

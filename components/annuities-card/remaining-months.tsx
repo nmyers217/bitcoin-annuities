@@ -1,6 +1,7 @@
 import { differenceInMonths } from 'date-fns'
 
-import { Annuity, parsePortfolioDate } from '@/lib/portfolio'
+import { parsePortfolioDate } from '@/lib/calculations'
+import { type Annuity } from '@/lib/types'
 
 interface RemainingMonthsProps {
   annuity: Annuity

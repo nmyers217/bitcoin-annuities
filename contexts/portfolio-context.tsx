@@ -6,16 +6,14 @@ import {
   portfolioReducer,
   recalculatePortfolio,
   sanitizePortfolioState,
-  type PortfolioAction,
-  type PortfolioState,
 } from '@/lib/portfolio'
+import { PortfolioAction, PortfolioState } from '@/lib/types'
 import { deserializeAnnuities } from '@/lib/url-state'
 
 const initialState: PortfolioState = {
   priceData: [],
   annuities: [],
-  cashFlows: [],
-  valuations: [],
+  scenarios: {},
   calculationStatus: 'idle',
   portfolioStartDate: null,
   lastCalculationInputHash: undefined,

@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { usePortfolio } from '@/contexts/portfolio-context'
-import { type Annuity } from '@/lib/portfolio'
+import { type Annuity } from '@/lib/types'
 
 const annuitySchema = z.object({
   createdAt: z.string(),

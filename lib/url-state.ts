@@ -1,4 +1,4 @@
-import { type Annuity } from './portfolio'
+import { type Annuity } from './types'
 
 export function serializeAnnuities(annuities: Annuity[]): string {
   return btoa(JSON.stringify(annuities))

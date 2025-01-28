@@ -1,8 +1,13 @@
-import { addMonths, format, isSameDay, parseISO, startOfMonth } from 'date-fns'
+import { format, isFirstDayOfMonth, isSameDay, parseISO } from 'date-fns'
 
-import { type MonteCarloResult } from '@/hooks/use-monte-carlo'
-import { type PriceData } from '@/lib/api'
-import { type Annuity, type CashFlow, type PortfolioValuation } from './types'
+import { type MonteCarloResult, type PriceData } from '@/lib/api'
+import {
+  type Annuity,
+  type PricePoint,
+  type Scenario,
+  type ScenarioResults,
+  type SimulationState,
+} from './types'
 
 export function parsePortfolioDate(date: string | Date): Date {
   if (date instanceof Date) return date
@@ -11,184 +16,250 @@ export function parsePortfolioDate(date: string | Date): Date {
     : parseISO(date)
 }
 
-export function* iterateMonths(
-  startDate: Date,
-  numberOfMonths: number
-): Generator<Date> {
-  for (let i = 1; i <= numberOfMonths; i++) {
-    yield startOfMonth(addMonths(startDate, i))
+function convertAmount(
+  amount: number,
+  fromCurrency: 'USD' | 'BTC',
+  price: number
+): { usdAmount: number; btcAmount: number } {
+  if (fromCurrency === 'USD') {
+    return {
+      usdAmount: amount,
+      btcAmount: amount / price,
+    }
+  } else {
+    return {
+      usdAmount: amount * price,
+      btcAmount: amount,
+    }
   }
 }
 
-export function findPriceData(
-  date: Date,
-  priceData: PriceData[]
-): PriceData | null {
-  const result = priceData.find((p) =>
-    isSameDay(parsePortfolioDate(p.date), date)
-  )
-  return result ?? null
-}
+function* dateWindowGenerator(
+  priceData: PriceData[],
+  monteCarloData?: MonteCarloResult
+): Generator<PricePoint> {
+  // Yield all historical dates
+  for (const price of priceData) {
+    const date = parsePortfolioDate(price.date)
+    yield {
+      date,
+      price: price.price,
+      isProjection: false,
+      scenarioPrices: {
+        average: price.price,
+        best: price.price,
+        worst: price.price,
+      },
+    }
+  }
 
-export function calculateInflow(
-  annuity: Annuity,
-  priceData: PriceData[]
-): CashFlow | null {
-  const creationDate = parsePortfolioDate(annuity.createdAt)
-  const creationPrice = findPriceData(creationDate, priceData)
-  if (!creationPrice) return null
-
-  return {
-    usdAmount:
-      annuity.principalCurrency === 'USD'
-        ? annuity.principal
-        : annuity.principal * creationPrice.price,
-    btcAmount:
-      annuity.principalCurrency === 'BTC'
-        ? annuity.principal
-        : annuity.principal / creationPrice.price,
-    date: format(creationDate, 'yyyy-MM-dd'),
-    annuityId: annuity.id,
-    type: 'inflow',
+  // Yield all projected dates if available
+  if (monteCarloData?.chartData) {
+    for (const projection of monteCarloData.chartData) {
+      const date = parsePortfolioDate(projection.date)
+      yield {
+        date,
+        price: projection.averagePrice,
+        isProjection: true,
+        scenarioPrices: {
+          average: projection.averagePrice,
+          best: projection.bestPrice,
+          worst: projection.worstPrice,
+        },
+      }
+    }
   }
 }
 
-export function calculateOutflows(
+function processInflow(
+  state: SimulationState,
   annuity: Annuity,
-  priceData: PriceData[]
-): CashFlow[] {
-  const monthlyRate = annuity.amortizationRate / 12
-  const creationDate = parsePortfolioDate(annuity.createdAt)
-  const creationPrice = findPriceData(creationDate, priceData)
-  if (!creationPrice) return []
+  pricePoint: PricePoint
+) {
+  for (const scenario of state.scenarios) {
+    const price = pricePoint.scenarioPrices[scenario.name]
+    const amounts = convertAmount(
+      annuity.principal,
+      annuity.principalCurrency,
+      price
+    )
 
-  const principalUSD =
-    annuity.principalCurrency === 'USD'
-      ? annuity.principal
-      : annuity.principal * creationPrice.price
+    scenario.currentState.btcBalance += amounts.btcAmount
+    scenario.currentState.usdBalance += amounts.usdAmount
 
-  const monthlyPaymentUSD =
-    principalUSD *
-    (monthlyRate / (1 - (1 + monthlyRate) ** -annuity.termMonths))
-
-  const outflows: CashFlow[] = []
-
-  for (const amortizationDate of iterateMonths(
-    creationDate,
-    annuity.termMonths
-  )) {
-    const amortizationDatePrice = findPriceData(amortizationDate, priceData)
-    if (!amortizationDatePrice) continue
-
-    outflows.push({
-      date: format(amortizationDate, 'yyyy-MM-dd'),
+    scenario.cashFlows.push({
+      date: format(pricePoint.date, 'yyyy-MM-dd'),
       annuityId: annuity.id,
-      type: 'outflow',
-      usdAmount: monthlyPaymentUSD,
-      btcAmount: monthlyPaymentUSD / amortizationDatePrice.price,
+      type: 'inflow',
+      usdAmount: amounts.usdAmount,
+      btcAmount: amounts.btcAmount,
+      isProjection: pricePoint.isProjection,
     })
   }
+}
 
-  return outflows
+function processOutflow(
+  state: SimulationState,
+  activeAnnuity: { annuity: Annuity; remainingTermMonths: number },
+  pricePoint: PricePoint
+) {
+  const monthlyRate = activeAnnuity.annuity.amortizationRate / 12
+
+  for (const scenario of state.scenarios) {
+    const price = pricePoint.scenarioPrices[scenario.name]
+
+    // Calculate monthly payment based on initial principal
+    const principalUSD =
+      activeAnnuity.annuity.principalCurrency === 'USD'
+        ? activeAnnuity.annuity.principal
+        : activeAnnuity.annuity.principal * price
+
+    const monthlyPaymentUSD =
+      principalUSD *
+      (monthlyRate /
+        (1 - Math.pow(1 + monthlyRate, -activeAnnuity.annuity.termMonths)))
+
+    const amounts = convertAmount(monthlyPaymentUSD, 'USD', price)
+
+    scenario.currentState.btcBalance = Math.max(
+      0,
+      scenario.currentState.btcBalance - amounts.btcAmount
+    )
+    scenario.currentState.usdBalance = Math.max(
+      0,
+      scenario.currentState.usdBalance - amounts.usdAmount
+    )
+
+    scenario.cashFlows.push({
+      date: format(pricePoint.date, 'yyyy-MM-dd'),
+      annuityId: activeAnnuity.annuity.id,
+      type: 'outflow',
+      usdAmount: amounts.usdAmount,
+      btcAmount: amounts.btcAmount,
+      isProjection: pricePoint.isProjection,
+    })
+
+    // Track monthly income for charts
+    scenario.monthlyIncome.push({
+      date: format(pricePoint.date, 'yyyy-MM-dd'),
+      usdAmount: amounts.usdAmount,
+      isProjection: pricePoint.isProjection,
+    })
+  }
+}
+
+function recordValuations(state: SimulationState, pricePoint: PricePoint) {
+  for (const scenario of state.scenarios) {
+    const price = pricePoint.scenarioPrices[scenario.name]
+
+    scenario.valuations.push({
+      date: format(pricePoint.date, 'yyyy-MM-dd'),
+      btcValue: scenario.currentState.btcBalance,
+      usdValue: scenario.currentState.btcBalance * price,
+      isProjection: pricePoint.isProjection,
+    })
+  }
+}
+
+function isLastDay(
+  date: Date,
+  priceData: PriceData[],
+  monteCarloData?: MonteCarloResult
+): boolean {
+  const lastHistoricalDate = parsePortfolioDate(
+    priceData[priceData.length - 1].date
+  )
+  const lastProjectedDate = monteCarloData?.chartData
+    ? parsePortfolioDate(
+        monteCarloData.chartData[monteCarloData.chartData.length - 1].date
+      )
+    : lastHistoricalDate
+
+  return isSameDay(date, lastProjectedDate)
 }
 
 export function performCalculations(
   priceData: PriceData[],
   annuities: Annuity[],
   monteCarloData?: MonteCarloResult
-) {
-  const cashFlows = annuities
-    .flatMap((annuity) => {
-      const inflow = calculateInflow(annuity, priceData)
-      const outflows = calculateOutflows(annuity, priceData)
-      return [inflow, ...outflows].filter(
-        (flow): flow is CashFlow => flow !== null
-      )
-    })
-    .sort(
-      (a, b) =>
-        parsePortfolioDate(a.date).getTime() -
-        parsePortfolioDate(b.date).getTime()
-    )
+): ScenarioResults {
+  // Initialize scenarios
+  const scenarios: Scenario[] = ['average', 'best', 'worst'].map((name) => ({
+    name,
+    valuations: [],
+    cashFlows: [],
+    monthlyIncome: [],
+    currentState: {
+      btcBalance: 0,
+      usdBalance: 0,
+    },
+  }))
 
-  let currentBalance = 0
-  const valuations: PortfolioValuation[] = []
-
-  // Process historical cash flows and valuations
-  for (const cashFlow of cashFlows) {
-    currentBalance +=
-      cashFlow.type === 'inflow' ? cashFlow.btcAmount : -cashFlow.btcAmount
-    currentBalance = Math.max(0, currentBalance)
-
-    const price = findPriceData(parsePortfolioDate(cashFlow.date), priceData)
-    if (!price) continue
-
-    valuations.push({
-      date: cashFlow.date,
-      btcValue: currentBalance,
-      usdValue: currentBalance * price.price,
-    })
+  const state: SimulationState = {
+    date: new Date(0), // Will be set on first iteration
+    scenarios,
+    activeAnnuities: [],
   }
 
-  // Add a valuation for the final historical data point
-  const lastPriceData = priceData.at(-1)
-  const lastPriceNotInValuations = valuations.find(
-    (valuation) => valuation.date === lastPriceData?.date
-  )
-  if (!lastPriceNotInValuations && lastPriceData) {
-    valuations.push({
-      date: lastPriceData.date,
-      btcValue: currentBalance,
-      usdValue: currentBalance * lastPriceData.price,
-    })
-  }
+  // Process each date in sequence
+  for (const pricePoint of dateWindowGenerator(priceData, monteCarloData)) {
+    state.date = pricePoint.date
 
-  // Add future valuations using Monte Carlo data if available
-  if (monteCarloData?.chartData && lastPriceData) {
-    // Initialize scenario balances with current balance
-    let bestBalance = currentBalance
-    let worstBalance = currentBalance
-
-    // Get monthly samples from Monte Carlo data
-    const monthlyProjections = monteCarloData.chartData.filter(
-      (point, index) =>
-        index === 0 || // Include first point
-        index === monteCarloData.chartData.length - 1 || // Include last point
-        new Date(point.date).getDate() === 1 // Include first day of each month
-    )
-
-    // Get the most recent monthly outflow amount
-    const lastOutflow = cashFlows
-      .filter((cf) => cf.type === 'outflow')
-      .sort((a, b) => b.date.localeCompare(a.date))[0]
-
-    const monthlyOutflowUSD = lastOutflow?.usdAmount ?? 0
-
-    // Add valuations for each monthly projection
-    for (const projection of monthlyProjections) {
-      if (new Date(projection.date) <= new Date(lastPriceData.date)) continue
-
-      // Calculate BTC needed to sell for each scenario
-      const bestBTCNeeded = monthlyOutflowUSD / projection.bestPrice
-      const avgBTCNeeded = monthlyOutflowUSD / projection.averagePrice
-      const worstBTCNeeded = monthlyOutflowUSD / projection.worstPrice
-
-      // Update balances
-      bestBalance = Math.max(0, bestBalance - bestBTCNeeded)
-      currentBalance = Math.max(0, currentBalance - avgBTCNeeded)
-      worstBalance = Math.max(0, worstBalance - worstBTCNeeded)
-
-      valuations.push({
-        date: projection.date,
-        btcValue: currentBalance,
-        btcValueBest: bestBalance,
-        btcValueWorst: worstBalance,
-        usdValue: currentBalance * projection.averagePrice,
-        usdValueBest: bestBalance * projection.bestPrice,
-        usdValueWorst: worstBalance * projection.worstPrice,
-      })
+    // Add any annuities that start on this date
+    for (const annuity of annuities) {
+      if (isSameDay(parsePortfolioDate(annuity.createdAt), pricePoint.date)) {
+        state.activeAnnuities.push({
+          annuity: { ...annuity },
+          remainingTermMonths: annuity.termMonths,
+        })
+        processInflow(state, annuity, pricePoint)
+      }
     }
+
+    // Process monthly payments for active annuities
+    if (isFirstDayOfMonth(pricePoint.date)) {
+      for (const active of state.activeAnnuities) {
+        // Make sure the annuity wasn't just created on this date
+        if (
+          isSameDay(
+            parsePortfolioDate(active.annuity.createdAt),
+            pricePoint.date
+          )
+        ) {
+          continue
+        }
+
+        if (active.remainingTermMonths > 0) {
+          processOutflow(state, active, pricePoint)
+          active.remainingTermMonths--
+        }
+      }
+    }
+
+    // Record valuations if it's the first of the month or last day of data
+    if (
+      isFirstDayOfMonth(pricePoint.date) ||
+      isLastDay(pricePoint.date, priceData, monteCarloData)
+    ) {
+      recordValuations(state, pricePoint)
+    }
+
+    // Clean up completed annuities
+    state.activeAnnuities = state.activeAnnuities.filter(
+      (active) => active.remainingTermMonths > 0
+    )
   }
 
-  return { cashFlows, valuations }
+  // Convert to expected return format
+  return state.scenarios.reduce(
+    (results, scenario) => ({
+      ...results,
+      [scenario.name]: {
+        cashFlows: scenario.cashFlows,
+        valuations: scenario.valuations,
+        monthlyIncome: scenario.monthlyIncome,
+      },
+    }),
+    {} as ScenarioResults
+  )
 }

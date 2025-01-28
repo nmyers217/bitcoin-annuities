@@ -12,10 +12,7 @@ const worker = {
 
     try {
       const result = performCalculations(...args)
-      console.log('Worker calculation complete:', {
-        cashFlowsLength: result.cashFlows.length,
-        valuationsLength: result.valuations.length,
-      })
+      console.log('Worker calculation complete:', result)
       return result
     } catch (error) {
       console.error('Worker calculation failed:', error)

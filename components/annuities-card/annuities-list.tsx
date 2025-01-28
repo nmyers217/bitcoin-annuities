@@ -1,9 +1,12 @@
-import { Annuity } from '@/lib/portfolio'
+import { type Annuity } from '@/lib/types'
 import { AnnuityItem } from './annuity-item'
 
 interface AnnuitiesListProps {
   annuities: Annuity[]
-  getCreationPrice: (annuity: Annuity) => number
+  getCreationPrice: (annuity: Annuity) => {
+    usd: number
+    btc: number
+  }
   calculateMonthlyPayment: (annuity: Annuity, creationPrice: number) => number
   onDelete: (id: string) => void
   onDuplicate: (annuity: Annuity) => void
@@ -31,7 +34,10 @@ export function AnnuitiesList({
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
         .map((annuity) => {
           const creationPrice = getCreationPrice(annuity)
-          const monthlyPayment = calculateMonthlyPayment(annuity, creationPrice)
+          const monthlyPayment = calculateMonthlyPayment(
+            annuity,
+            creationPrice.usd
+          )
           return (
             <AnnuityItem
               key={annuity.id}

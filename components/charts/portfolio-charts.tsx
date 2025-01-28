@@ -81,39 +81,71 @@ export function PortfolioChartCard() {
   const { state } = usePortfolio()
   const isCalculating = state.calculationStatus === 'calculating'
 
-  const usdData = state.valuations.map(
-    ({ date, usdValue, usdValueBest, usdValueWorst }) => ({
-      date,
-      usdValue,
-      usdValueBest: usdValueBest ?? usdValue,
-      usdValueWorst: usdValueWorst ?? usdValue,
-    })
-  )
-  const btcData = state.valuations.map(
-    ({ date, btcValue, btcValueBest, btcValueWorst }) => ({
-      date,
-      btcValue,
-      btcValueBest: btcValueBest ?? btcValue,
-      btcValueWorst: btcValueWorst ?? btcValue,
-    })
-  )
-
-  // Aggregate outflows by month
-  const monthlyIncomeData = state.cashFlows
-    .filter((cf) => cf.type === 'outflow')
-    .reduce((acc: Record<string, number>, cf) => {
-      const month = cf.date.substring(0, 7) // Get YYYY-MM
-      acc[month] = (acc[month] ?? 0) + cf.usdAmount
+  const aggregatedData = Object.entries(state.scenarios).reduce(
+    (acc, [scenarioName, scenario]) => {
+      for (const valuation of scenario.valuations) {
+        const date = valuation.date
+        if (!acc[date]) {
+          acc[date] = {
+            date,
+            usdValue: 0,
+            usdValueBest: 0,
+            usdValueWorst: 0,
+            btcValue: 0,
+            btcValueBest: 0,
+            btcValueWorst: 0,
+          }
+        }
+        if (scenarioName === 'best') {
+          acc[date].usdValueBest = valuation.usdValue
+          acc[date].btcValueBest = valuation.btcValue
+        } else if (scenarioName === 'worst') {
+          acc[date].usdValueWorst = valuation.usdValue
+          acc[date].btcValueWorst = valuation.btcValue
+        } else {
+          acc[date].usdValue = valuation.usdValue
+          acc[date].btcValue = valuation.btcValue
+        }
+      }
       return acc
-    }, {})
-
-  // Convert to array and format for chart
-  const monthlyIncomeChartData = Object.entries(monthlyIncomeData)
-    .map(([month, total]) => ({
-      date: month + '-01', // Convert YYYY-MM to YYYY-MM-DD
-      usdValue: total,
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date))
+    },
+    {} as Record<string, ChartData>
+  )
+  const chartData = Object.values(aggregatedData).filter((data) =>
+    ['usdValue', 'usdValueBest', 'usdValueWorst'].some((key) => data[key] !== 0)
+  )
+  const aggregatedMonthlyIncomeData = Object.entries(state.scenarios).reduce(
+    (acc, [scenarioName, scenario]) => {
+      for (const income of scenario.monthlyIncome) {
+        const date = income.date
+        if (!acc[date]) {
+          acc[date] = {
+            date,
+            usdValue: 0,
+            usdValueBest: 0,
+            usdValueWorst: 0,
+          }
+        }
+        if (scenarioName === 'best') {
+          acc[date].usdValueBest =
+            Number(acc[date].usdValueBest ?? 0) + income.usdAmount
+        } else if (scenarioName === 'worst') {
+          acc[date].usdValueWorst =
+            Number(acc[date].usdValueWorst ?? 0) + income.usdAmount
+        } else {
+          acc[date].usdValue =
+            Number(acc[date].usdValue ?? 0) + income.usdAmount
+        }
+      }
+      return acc
+    },
+    {} as Record<string, ChartData>
+  )
+  const monthlyIncomeChartData = Object.values(
+    aggregatedMonthlyIncomeData
+  ).filter((data) =>
+    ['usdValue', 'usdValueBest', 'usdValueWorst'].some((key) => data[key] !== 0)
+  )
 
   const btcFormatter = (value: number) => {
     // Format with 8 decimal places and remove trailing zeros
@@ -140,7 +172,7 @@ export function PortfolioChartCard() {
             onRetry={refetch}
           >
             <PortfolioChart
-              data={usdData}
+              data={chartData}
               dataKey="usdValue"
               valuePrefix="$"
               projectionKeys={{
@@ -169,7 +201,7 @@ export function PortfolioChartCard() {
             onRetry={refetch}
           >
             <PortfolioChart
-              data={btcData}
+              data={chartData}
               dataKey="btcValue"
               valuePrefix=""
               projectionKeys={{
@@ -196,6 +228,10 @@ export function PortfolioChartCard() {
               data={monthlyIncomeChartData}
               dataKey="usdValue"
               valuePrefix="$"
+              projectionKeys={{
+                best: 'usdValueBest',
+                worst: 'usdValueWorst',
+              }}
               formatter={(value) =>
                 new Intl.NumberFormat('en-US', {
                   notation: 'standard',
