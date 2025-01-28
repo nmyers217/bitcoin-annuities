@@ -1,5 +1,4 @@
 import * as Comlink from 'comlink'
-import type { Remote } from 'comlink'
 import {
   addMonths,
   differenceInMonths,
@@ -51,7 +50,7 @@ export interface PortfolioState {
   portfolioStartDate: string | null
 }
 
-type Worker = {
+type WorkerAPI = {
   calculate: (
     priceData: PriceData[],
     annuities: Annuity[],
@@ -62,14 +61,42 @@ type Worker = {
   }>
 }
 
-let workerApi: Remote<Worker> | null = null
+type WorkerInstance = {
+  calculate: (
+    priceData: PriceData[],
+    annuities: Annuity[],
+    monteCarloData?: MonteCarloResult
+  ) => Promise<{
+    cashFlows: CashFlow[]
+    valuations: PortfolioValuation[]
+  }>
+  terminate: () => void
+}
 
-function getWorker() {
-  if (!workerApi && typeof Worker !== 'undefined') {
-    const worker = new Worker(new URL('./portfolio.worker.ts', import.meta.url))
-    workerApi = Comlink.wrap<Worker>(worker)
+let currentWorker: {
+  worker: WorkerInstance
+  promise: Promise<{ cashFlows: CashFlow[]; valuations: PortfolioValuation[] }>
+} | null = null
+
+function terminateCurrentWorker() {
+  if (currentWorker) {
+    currentWorker.worker.terminate()
+    currentWorker = null
   }
-  return workerApi
+}
+
+function createWorker(): WorkerInstance | null {
+  if (typeof Worker === 'undefined') return null
+
+  const rawWorker = new Worker(
+    new URL('./portfolio.worker.ts', import.meta.url)
+  )
+  const wrapped = Comlink.wrap<WorkerAPI>(rawWorker)
+
+  return {
+    calculate: wrapped.calculate.bind(wrapped),
+    terminate: () => rawWorker.terminate(),
+  }
 }
 
 export type PortfolioAction =
@@ -277,22 +304,56 @@ export async function recalculatePortfolio(
     return
   }
 
-  const worker = getWorker()
+  // Terminate any existing worker
+  terminateCurrentWorker()
 
-  try {
-    const result = worker
-      ? await worker.calculate(state.priceData, state.annuities, monteCarloData)
-      : performCalculations(state.priceData, state.annuities, monteCarloData)
+  // Create new worker and calculation promise
+  const worker = createWorker()
+  if (!worker) {
+    console.warn('No worker support, falling back to sync calculation')
 
+    // Fallback to sync calculation if no worker support
+    const result = performCalculations(
+      state.priceData,
+      state.annuities,
+      monteCarloData
+    )
     calculationCache.set(inputHash, result)
     dispatch({
       type: 'CALCULATION_COMPLETE',
       ...result,
       inputHash,
     })
+    return
+  }
+
+  try {
+    const promise = worker.calculate(
+      state.priceData,
+      state.annuities,
+      monteCarloData
+    )
+    currentWorker = { worker, promise }
+
+    const result = await promise
+
+    // Only process result if this is still the current worker
+    if (currentWorker?.promise === promise) {
+      calculationCache.set(inputHash, result)
+      dispatch({
+        type: 'CALCULATION_COMPLETE',
+        ...result,
+        inputHash,
+      })
+    }
   } catch (error) {
-    console.error('Calculation failed:', error)
-    // Optionally dispatch an error action here
+    if (error instanceof Error) {
+      console.error('Calculation failed:', error)
+    }
+  } finally {
+    if (currentWorker?.worker === worker) {
+      terminateCurrentWorker()
+    }
   }
 }
 
