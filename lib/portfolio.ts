@@ -86,16 +86,38 @@ function terminateCurrentWorker() {
 }
 
 function createWorker(): WorkerInstance | null {
-  if (typeof Worker === 'undefined') return null
+  if (typeof Worker === 'undefined') {
+    console.warn('Web Workers are not supported in this environment')
+    return null
+  }
 
-  const rawWorker = new Worker(
-    new URL('./portfolio.worker.ts', import.meta.url)
-  )
-  const wrapped = Comlink.wrap<WorkerAPI>(rawWorker)
+  let rawWorker: Worker
+  try {
+    console.log('Creating worker in', process.env.NODE_ENV, 'mode')
+    if (process.env.NODE_ENV === 'production') {
+      console.log('Using production worker path: /portfolio.worker.js')
+      rawWorker = new Worker('/portfolio.worker.js')
+    } else {
+      console.log('Using development worker path')
+      rawWorker = new Worker(new URL('./portfolio.worker.ts', import.meta.url))
+    }
+    console.log('Worker created successfully')
 
-  return {
-    calculate: wrapped.calculate.bind(wrapped),
-    terminate: () => rawWorker.terminate(),
+    console.log('Wrapping worker with Comlink...')
+    const wrapped = Comlink.wrap<WorkerAPI>(rawWorker)
+    console.log('Worker wrapped successfully')
+
+    return {
+      calculate: wrapped.calculate.bind(wrapped),
+      terminate: () => {
+        console.log('Terminating worker')
+        rawWorker.terminate()
+        console.log('Worker terminated')
+      },
+    }
+  } catch (error) {
+    console.error('Failed to create worker:', error)
+    return null
   }
 }
 
@@ -305,13 +327,16 @@ export async function recalculatePortfolio(
   }
 
   // Terminate any existing worker
-  terminateCurrentWorker()
+  if (currentWorker) {
+    console.log('Terminating existing worker')
+    terminateCurrentWorker()
+  }
 
   // Create new worker and calculation promise
+  console.log('Creating new worker')
   const worker = createWorker()
   if (!worker) {
     console.warn('No worker support, falling back to sync calculation')
-
     // Fallback to sync calculation if no worker support
     const result = performCalculations(
       state.priceData,
@@ -328,6 +353,7 @@ export async function recalculatePortfolio(
   }
 
   try {
+    console.log('Starting worker calculation')
     const promise = worker.calculate(
       state.priceData,
       state.annuities,
@@ -336,22 +362,30 @@ export async function recalculatePortfolio(
     currentWorker = { worker, promise }
 
     const result = await promise
+    console.log('Worker calculation complete')
 
     // Only process result if this is still the current worker
     if (currentWorker?.promise === promise) {
+      console.log('Caching and dispatching result')
       calculationCache.set(inputHash, result)
       dispatch({
         type: 'CALCULATION_COMPLETE',
         ...result,
         inputHash,
       })
+    } else {
+      console.log('Discarding outdated worker result')
     }
   } catch (error) {
     if (error instanceof Error) {
-      console.error('Calculation failed:', error)
+      console.error('Calculation failed:', {
+        error: error.message,
+        stack: error.stack,
+      })
     }
   } finally {
     if (currentWorker?.worker === worker) {
+      console.log('Cleaning up worker')
       terminateCurrentWorker()
     }
   }

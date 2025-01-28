@@ -16,6 +16,14 @@ async function buildWorker() {
       platform: 'browser',
       target: ['es2020'],
       minify: true,
+      sourcemap: true,
+      external: [],
+      loader: {
+        '.ts': 'ts',
+      },
+      define: {
+        'process.env.NODE_ENV': '"production"',
+      },
     })
 
     console.log('Worker build complete')
