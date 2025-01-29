@@ -9,7 +9,8 @@ interface RemainingMonthsProps {
 
 export function RemainingMonths({ annuity }: RemainingMonthsProps) {
   const startDate = parsePortfolioDate(annuity.createdAt)
-  const monthsElapsed = Math.abs(differenceInMonths(new Date(), startDate))
+  const now = new Date()
+  const monthsElapsed = startDate > now ? 0 : differenceInMonths(now, startDate)
   const monthsRemaining = Math.max(0, annuity.termMonths - monthsElapsed)
   const percentRemaining = monthsRemaining / annuity.termMonths
 
