@@ -1,5 +1,5 @@
 import * as Comlink from 'comlink'
-import { addMonths, differenceInMonths, format } from 'date-fns'
+import { format } from 'date-fns/format'
 
 import { type MonteCarloResult, type PriceData } from '@/lib/api'
 import { parsePortfolioDate, performCalculations } from '@/lib/calculations'
