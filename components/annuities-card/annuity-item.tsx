@@ -28,6 +28,9 @@ export function AnnuityItem({
   onAdjustDate,
   onEdit,
 }: AnnuityItemProps) {
+  const startDate = parsePortfolioDate(annuity.createdAt)
+  const isStarted = Date.now() > startDate.getTime()
+
   return (
     <div className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
       <div className="space-y-1">
@@ -52,7 +55,7 @@ export function AnnuityItem({
           </span>
         </p>
         <p className="text-sm text-muted-foreground">
-          Started {format(parsePortfolioDate(annuity.createdAt), 'PP')} •{' '}
+          {isStarted ? 'Started' : 'Starts on'} {format(startDate, 'PP')} •{' '}
           {annuity.termMonths} months •{' '}
           {(annuity.amortizationRate * 100).toFixed(1)}% APR
           <RemainingMonths annuity={annuity} />

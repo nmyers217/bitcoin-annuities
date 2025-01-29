@@ -159,10 +159,9 @@ export function portfolioReducer(
     case 'SET_PORTFOLIO_START_DATE': {
       if (!state.portfolioStartDate || !state.annuities.length) return state
 
-      const monthsDiff = differenceInMonths(
-        parsePortfolioDate(action.date),
-        parsePortfolioDate(state.portfolioStartDate)
-      )
+      const oldStartDate = parsePortfolioDate(state.portfolioStartDate)
+      const newStartDate = parsePortfolioDate(action.date)
+      const diffInMillis = newStartDate.getTime() - oldStartDate.getTime()
 
       return {
         ...state,
@@ -170,7 +169,9 @@ export function portfolioReducer(
         annuities: state.annuities.map((annuity) => ({
           ...annuity,
           createdAt: format(
-            addMonths(parsePortfolioDate(annuity.createdAt), monthsDiff),
+            new Date(
+              parsePortfolioDate(annuity.createdAt).getTime() + diffInMillis
+            ),
             'yyyy-MM-dd'
           ),
         })),
