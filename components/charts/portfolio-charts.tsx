@@ -121,20 +121,20 @@ export function PortfolioChartCard() {
         if (!acc[date]) {
           acc[date] = {
             date,
-            usdValue: 0,
-            usdValueBest: 0,
-            usdValueWorst: 0,
+            monthlyIncome: 0,
+            monthlyIncomeBest: 0,
+            monthlyIncomeWorst: 0,
           }
         }
         if (scenarioName === 'best') {
-          acc[date].usdValueBest =
-            Number(acc[date].usdValueBest ?? 0) + income.usdAmount
+          acc[date].monthlyIncomeBest =
+            Number(acc[date].monthlyIncomeBest ?? 0) + income.usdAmount
         } else if (scenarioName === 'worst') {
-          acc[date].usdValueWorst =
-            Number(acc[date].usdValueWorst ?? 0) + income.usdAmount
+          acc[date].monthlyIncomeWorst =
+            Number(acc[date].monthlyIncomeWorst ?? 0) + income.usdAmount
         } else {
-          acc[date].usdValue =
-            Number(acc[date].usdValue ?? 0) + income.usdAmount
+          acc[date].monthlyIncome =
+            Number(acc[date].monthlyIncome ?? 0) + income.usdAmount
         }
       }
       return acc
@@ -144,7 +144,9 @@ export function PortfolioChartCard() {
   const monthlyIncomeChartData = Object.values(
     aggregatedMonthlyIncomeData
   ).filter((data) =>
-    ['usdValue', 'usdValueBest', 'usdValueWorst'].some((key) => data[key] !== 0)
+    ['monthlyIncome', 'monthlyIncomeBest', 'monthlyIncomeWorst'].some(
+      (key) => data[key] !== 0
+    )
   )
 
   const btcFormatter = (value: number) => {
@@ -226,11 +228,11 @@ export function PortfolioChartCard() {
           >
             <PortfolioChart
               data={monthlyIncomeChartData}
-              dataKey="usdValue"
+              dataKey="monthlyIncome"
               valuePrefix="$"
               projectionKeys={{
-                best: 'usdValueBest',
-                worst: 'usdValueWorst',
+                best: 'monthlyIncomeBest',
+                worst: 'monthlyIncomeWorst',
               }}
               formatter={(value) =>
                 new Intl.NumberFormat('en-US', {
