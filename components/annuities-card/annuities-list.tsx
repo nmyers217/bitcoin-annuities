@@ -7,7 +7,10 @@ interface AnnuitiesListProps {
     usd: number
     btc: number
   }
-  calculateMonthlyPayment: (annuity: Annuity, creationPrice: number) => number
+  calculateMonthlyPayment: (
+    annuity: Annuity,
+    creationPrice: { usd: number; btc: number }
+  ) => number
   onDelete: (id: string) => void
   onDuplicate: (annuity: Annuity) => void
   onAdjustDate: (annuity: Annuity, months: number) => void
@@ -34,10 +37,7 @@ export function AnnuitiesList({
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
         .map((annuity) => {
           const creationPrice = getCreationPrice(annuity)
-          const monthlyPayment = calculateMonthlyPayment(
-            annuity,
-            creationPrice.usd
-          )
+          const monthlyPayment = calculateMonthlyPayment(annuity, creationPrice)
           return (
             <AnnuityItem
               key={annuity.id}

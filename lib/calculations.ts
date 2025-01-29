@@ -104,23 +104,34 @@ function processOutflow(
   pricePoint: PricePoint
 ) {
   const monthlyRate = activeAnnuity.annuity.amortizationRate / 12
+  const { annuity } = activeAnnuity
 
   for (const scenario of state.scenarios) {
-    const price = pricePoint.scenarioPrices[scenario.name]
+    const currentPrice = pricePoint.scenarioPrices[scenario.name]
 
-    // Calculate monthly payment based on initial principal
+    // Find the creation price from this scenario's cash flows
+    const creationInflow = scenario.cashFlows.find(
+      (cf) => cf.type === 'inflow' && cf.annuityId === annuity.id
+    )
+    const creationPrice = creationInflow
+      ? creationInflow.usdAmount / creationInflow.btcAmount
+      : pricePoint.scenarioPrices[scenario.name]
+
+    // Convert to USD terms using creation price for BTC principal
     const principalUSD =
-      activeAnnuity.annuity.principalCurrency === 'USD'
-        ? activeAnnuity.annuity.principal
-        : activeAnnuity.annuity.principal * price
+      annuity.principalCurrency === 'BTC'
+        ? annuity.principal * creationPrice
+        : annuity.principal
 
+    // Calculate fixed monthly payment in USD
     const monthlyPaymentUSD =
       principalUSD *
-      (monthlyRate /
-        (1 - Math.pow(1 + monthlyRate, -activeAnnuity.annuity.termMonths)))
+      (monthlyRate / (1 - Math.pow(1 + monthlyRate, -annuity.termMonths)))
 
-    const amounts = convertAmount(monthlyPaymentUSD, 'USD', price)
+    // Convert USD payment to BTC using current price
+    const amounts = convertAmount(monthlyPaymentUSD, 'USD', currentPrice)
 
+    // Update balances
     scenario.currentState.btcBalance = Math.max(
       0,
       scenario.currentState.btcBalance - amounts.btcAmount
@@ -130,11 +141,12 @@ function processOutflow(
       scenario.currentState.usdBalance - amounts.usdAmount
     )
 
+    // Record cash flow
     scenario.cashFlows.push({
       date: format(pricePoint.date, 'yyyy-MM-dd'),
-      annuityId: activeAnnuity.annuity.id,
+      annuityId: annuity.id,
       type: 'outflow',
-      usdAmount: amounts.usdAmount,
+      usdAmount: monthlyPaymentUSD, // Use fixed USD payment
       btcAmount: amounts.btcAmount,
       isProjection: pricePoint.isProjection,
     })
@@ -142,7 +154,7 @@ function processOutflow(
     // Track monthly income for charts
     scenario.monthlyIncome.push({
       date: format(pricePoint.date, 'yyyy-MM-dd'),
-      usdAmount: amounts.usdAmount,
+      usdAmount: monthlyPaymentUSD, // Use fixed USD payment
       isProjection: pricePoint.isProjection,
     })
   }

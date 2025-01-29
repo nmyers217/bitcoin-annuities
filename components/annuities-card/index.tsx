@@ -11,18 +11,6 @@ import { type Annuity } from '@/lib/types'
 import { AnnuitiesList } from './annuities-list'
 import { AnnuitiesCardHeader } from './card-header'
 
-const calculateMonthlyPayment = (annuity: Annuity, creationPrice: number) => {
-  const monthlyRate = annuity.amortizationRate / 12
-  const principalUSD =
-    annuity.principalCurrency === 'USD'
-      ? annuity.principal
-      : annuity.principal * creationPrice
-  return (
-    principalUSD *
-    (monthlyRate / (1 - (1 + monthlyRate) ** -annuity.termMonths))
-  )
-}
-
 export function AnnuitiesCard() {
   const { state, dispatch } = usePortfolio()
   const [editingAnnuity, setEditingAnnuity] = useState<Annuity | undefined>()
@@ -37,6 +25,24 @@ export function AnnuitiesCard() {
       usd: inflow?.usdAmount ?? 0,
       btc: inflow?.btcAmount ?? 0,
     }
+  }
+
+  const calculateMonthlyPayment = (
+    annuity: Annuity,
+    creationPrice: { usd: number; btc: number }
+  ) => {
+    const monthlyRate = annuity.amortizationRate / 12
+    const pricePerBTC = creationPrice.btc
+      ? creationPrice.usd / creationPrice.btc
+      : 0
+    const principalUSD =
+      annuity.principalCurrency === 'USD'
+        ? annuity.principal
+        : annuity.principal * pricePerBTC
+    return (
+      principalUSD *
+      (monthlyRate / (1 - (1 + monthlyRate) ** -annuity.termMonths))
+    )
   }
 
   const handlers = {
