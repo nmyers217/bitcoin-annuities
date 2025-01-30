@@ -66,9 +66,7 @@ export function AnnuitiesCard() {
         annuity: { ...annuity, createdAt: format(newDate, 'yyyy-MM-dd') },
       })
     },
-    onPortfolioStartDateChange: (e: React.ChangeEvent<HTMLInputElement>) => {
-      const newDate = e.target.value
-      if (!newDate) return
+    onPortfolioStartDateChange: (newDate: string) => {
       dispatch({ type: 'SET_PORTFOLIO_START_DATE', date: newDate })
     },
   }

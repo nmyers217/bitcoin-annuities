@@ -87,7 +87,7 @@ function MonteCarloChart() {
           tickFormatter={(date) => new Date(date).toLocaleDateString()}
           minTickGap={50}
           stroke="hsl(var(--muted-foreground))"
-          tick={{ fill: 'hsl(var(--muted-foreground))' }}
+          tickMargin={5}
         />
         <YAxis
           scale="log"
@@ -101,7 +101,6 @@ function MonteCarloChart() {
             }).format(value)
           }
           stroke="hsl(var(--muted-foreground))"
-          tick={{ fill: 'hsl(var(--muted-foreground))' }}
         />
         <Tooltip
           contentStyle={{
@@ -188,12 +187,13 @@ export function MonteCarloChartCard() {
           Future price projections based on historical volatility
         </CardDescription>
       </CardHeader>
+
       <CardContent className="p-0">
-        <AsyncChart isLoading={isLoading} error={error} onRetry={refetch}>
-          <div className="relative w-full px-6 pb-6">
+        <div className="relative w-full px-6 pb-6">
+          <AsyncChart isLoading={isLoading} error={error} onRetry={refetch}>
             <MonteCarloChart />
-          </div>
-        </AsyncChart>
+          </AsyncChart>
+        </div>
       </CardContent>
     </Card>
   )

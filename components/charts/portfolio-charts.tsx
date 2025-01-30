@@ -71,7 +71,9 @@ function ChartCard({
         </div>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className="p-0">
+        <div className="relative w-full px-6 pb-6">{children}</div>
+      </CardContent>
     </Card>
   )
 }
@@ -151,16 +153,23 @@ export function PortfolioChartCard() {
 
   const btcFormatter = (value: number) => {
     // Format with 8 decimal places and remove trailing zeros
-    const formatted = value.toLocaleString('en-US', {
+    return value.toLocaleString('en-US', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 8,
     })
-    return `₿${formatted}`
+  }
+
+  const usdFormatter = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      notation: 'compact',
+      maximumFractionDigits: 0,
+    }).format(value)
   }
 
   return (
     <div className="space-y-6">
       <MonteCarloChartCard />
+
       <div className="grid gap-6 lg:grid-cols-3">
         <ChartCard
           title="Portfolio Value in USD"
@@ -181,12 +190,7 @@ export function PortfolioChartCard() {
                 best: 'usdValueBest',
                 worst: 'usdValueWorst',
               }}
-              formatter={(value) =>
-                new Intl.NumberFormat('en-US', {
-                  notation: 'compact',
-                  maximumFractionDigits: 0,
-                }).format(value)
-              }
+              formatter={usdFormatter}
             />
           </AsyncChart>
         </ChartCard>
@@ -205,7 +209,7 @@ export function PortfolioChartCard() {
             <PortfolioChart
               data={chartData}
               dataKey="btcValue"
-              valuePrefix=""
+              valuePrefix="₿"
               projectionKeys={{
                 best: 'btcValueBest',
                 worst: 'btcValueWorst',
@@ -234,12 +238,7 @@ export function PortfolioChartCard() {
                 best: 'monthlyIncomeBest',
                 worst: 'monthlyIncomeWorst',
               }}
-              formatter={(value) =>
-                new Intl.NumberFormat('en-US', {
-                  notation: 'standard',
-                  maximumFractionDigits: 0,
-                }).format(value)
-              }
+              formatter={usdFormatter}
             />
           </AsyncChart>
         </ChartCard>

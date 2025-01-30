@@ -22,9 +22,9 @@ export function RemainingMonths({ annuity }: RemainingMonthsProps) {
   }
 
   return (
-    <span className="ml-2 inline-flex items-center">
+    <span className="inline-flex items-center">
       <span className={`font-medium ${color}`}>
-        • {monthsRemaining} payments remaining
+        {monthsRemaining} payments remaining
       </span>
     </span>
   )

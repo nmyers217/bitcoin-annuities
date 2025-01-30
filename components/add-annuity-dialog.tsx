@@ -3,10 +3,12 @@
 import { useEffect } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
+import { CalendarIcon } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import * as z from 'zod'
 
 import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
 import {
   Dialog,
   DialogContent,
@@ -25,6 +27,11 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -32,10 +39,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { usePortfolio } from '@/contexts/portfolio-context'
+import { parsePortfolioDate } from '@/lib/calculations'
 import { type Annuity } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 const annuitySchema = z.object({
-  createdAt: z.string(),
+  createdAt: z.date(),
   principal: z.number().positive(),
   principalCurrency: z.enum(['BTC', 'USD']),
   amortizationRate: z.number().min(0).max(1),
@@ -58,7 +67,7 @@ export function AddAnnuityDialog({
   const form = useForm<z.infer<typeof annuitySchema>>({
     resolver: zodResolver(annuitySchema),
     defaultValues: {
-      createdAt: format(new Date(), 'yyyy-MM-dd'),
+      createdAt: new Date(),
       principal: 100000,
       principalCurrency: 'USD',
       amortizationRate: 0.12,
@@ -69,11 +78,8 @@ export function AddAnnuityDialog({
   useEffect(() => {
     if (editAnnuity) {
       form.reset({
-        createdAt: editAnnuity.createdAt,
-        principal: editAnnuity.principal,
-        principalCurrency: editAnnuity.principalCurrency,
-        amortizationRate: editAnnuity.amortizationRate,
-        termMonths: editAnnuity.termMonths,
+        ...editAnnuity,
+        createdAt: parsePortfolioDate(editAnnuity.createdAt),
       })
     }
   }, [editAnnuity, form])
@@ -82,6 +88,7 @@ export function AddAnnuityDialog({
     const annuity = {
       id: editAnnuity?.id ?? crypto.randomUUID(),
       ...values,
+      createdAt: format(values.createdAt, 'yyyy-MM-dd'),
     }
 
     dispatch({
@@ -109,11 +116,37 @@ export function AddAnnuityDialog({
               control={form.control}
               name="createdAt"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="flex flex-col">
                   <FormLabel>Start Date</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            'w-full pl-3 text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          {field.value ? (
+                            format(field.value, 'PPP')
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        defaultMonth={field.value}
+                        onSelect={field.onChange}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                   <FormDescription>
                     When did you start this annuity?
                   </FormDescription>

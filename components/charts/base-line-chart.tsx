@@ -76,15 +76,18 @@ export function BaseLineChart({
           dataKey="date"
           type="category"
           tickFormatter={(date) => new Date(date).toLocaleDateString()}
-          minTickGap={50}
           stroke="hsl(var(--muted-foreground))"
-          tick={{ fill: 'hsl(var(--muted-foreground))' }}
+          minTickGap={30}
+          tickMargin={5}
         />
         <YAxis
-          tickFormatter={(value) => (formatter ?? defaultFormatter)(value)}
+          tickFormatter={(value) =>
+            `${valuePrefix}${(formatter ?? defaultFormatter)(value)}`
+          }
           stroke="hsl(var(--muted-foreground))"
-          tick={{ fill: 'hsl(var(--muted-foreground))' }}
           allowDecimals={true}
+          minTickGap={10}
+          tickCount={10}
         />
         <Tooltip
           contentStyle={{

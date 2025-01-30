@@ -1,11 +1,19 @@
-import { Landmark } from 'lucide-react'
+import { format } from 'date-fns'
+import { CalendarIcon, Landmark } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
 import { CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { parsePortfolioDate } from '@/lib/calculations'
 
 interface AnnuitiesCardHeaderProps {
   portfolioStartDate: string | null
-  onPortfolioStartDateChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onPortfolioStartDateChange: (date: string) => void
 }
 
 export function AnnuitiesCardHeader({
@@ -24,12 +32,32 @@ export function AnnuitiesCardHeader({
             <span className="text-sm text-muted-foreground">
               Portfolio Start:
             </span>
-            <Input
-              type="date"
-              value={portfolioStartDate}
-              onChange={onPortfolioStartDateChange}
-              className="w-auto"
-            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-[240px] pl-3 text-left font-normal"
+                >
+                  {portfolioStartDate ? (
+                    format(parsePortfolioDate(portfolioStartDate), 'PPP')
+                  ) : (
+                    <span>Pick a date</span>
+                  )}
+                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={parsePortfolioDate(portfolioStartDate)}
+                  defaultMonth={parsePortfolioDate(portfolioStartDate)}
+                  onSelect={(date) =>
+                    onPortfolioStartDateChange(date ? date.toISOString() : '')
+                  }
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         )}
       </div>
