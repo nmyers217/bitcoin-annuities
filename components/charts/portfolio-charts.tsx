@@ -159,13 +159,6 @@ export function PortfolioChartCard() {
     })
   }
 
-  const usdFormatter = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      notation: 'compact',
-      maximumFractionDigits: 0,
-    }).format(value)
-  }
-
   return (
     <div className="space-y-6">
       <MonteCarloChartCard />
@@ -190,7 +183,12 @@ export function PortfolioChartCard() {
                 best: 'usdValueBest',
                 worst: 'usdValueWorst',
               }}
-              formatter={usdFormatter}
+              formatter={(value) =>
+                new Intl.NumberFormat('en-US', {
+                  notation: 'compact',
+                  maximumFractionDigits: 0,
+                }).format(value)
+              }
             />
           </AsyncChart>
         </ChartCard>
@@ -238,7 +236,11 @@ export function PortfolioChartCard() {
                 best: 'monthlyIncomeBest',
                 worst: 'monthlyIncomeWorst',
               }}
-              formatter={usdFormatter}
+              formatter={(value) =>
+                new Intl.NumberFormat('en-US', {
+                  maximumFractionDigits: 2,
+                }).format(value)
+              }
             />
           </AsyncChart>
         </ChartCard>
