@@ -62,7 +62,10 @@ export function AnnuityItem({
             <span className="text-muted-foreground">•</span>
             <span className="inline-flex items-center gap-1">
               <span className="text-base">$</span>
-              {creationPrice.usd.toLocaleString()}
+              {creationPrice.usd.toLocaleString(undefined, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              })}
             </span>
             <span className="text-muted-foreground">•</span>
             <span className="inline-flex items-center gap-1">
@@ -70,8 +73,9 @@ export function AnnuityItem({
                 className="h-4 w-4 text-muted-foreground"
                 aria-hidden="true"
               />
+              <span className="text-base">$</span>
               {monthlyPayment.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
+                minimumFractionDigits: 0,
                 maximumFractionDigits: 2,
               })}
               <span className="text-sm text-muted-foreground">/mo</span>
