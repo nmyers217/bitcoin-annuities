@@ -1,13 +1,9 @@
-import { unstable_cache } from 'next/cache'
 import { NextResponse } from 'next/server'
 import { isAfter, parseISO, subYears } from 'date-fns'
 
-import { getCachedBitcoinPrice } from '@/lib/bitcoin-price'
+import { CACHE_DURATION_SECONDS } from '@/config'
+import { fetchBitcoinPriceData } from '@/lib/bitcoin-price'
 import { generateMonteCarloPaths } from '@/lib/monte-carlo'
-
-// Use consistent naming for cache keys and tags
-const MONTE_CARLO_CACHE_KEY = ['btc-monte-carlo-v1']
-const MONTE_CARLO_CACHE_TAGS = ['btc-monte-carlo-v1', 'btc-price-v2']
 
 // Configure the historical data window and visible paths
 const HISTORICAL_YEARS = 13
@@ -23,7 +19,7 @@ interface ProcessedChartPoint {
 
 async function generateMonteCarloSimulation() {
   // Use the shared cached Bitcoin price data
-  const historicalPrices = await getCachedBitcoinPrice()
+  const historicalPrices = await fetchBitcoinPriceData()
 
   // Calculate the cutoff date
   const cutoffDate = subYears(new Date(), HISTORICAL_YEARS)
@@ -103,27 +99,17 @@ async function generateMonteCarloSimulation() {
   }
 }
 
-const getCachedMonteCarloResults = unstable_cache(
-  async () => {
-    return await generateMonteCarloSimulation()
-  },
-  MONTE_CARLO_CACHE_KEY,
-  {
-    revalidate: 43200, // 12 hours
-    tags: MONTE_CARLO_CACHE_TAGS,
-  }
-)
-
 export async function GET() {
   try {
-    const results = await getCachedMonteCarloResults()
-    return NextResponse.json(results)
+    const results = await generateMonteCarloSimulation()
+
+    return NextResponse.json(results, {
+      headers: {
+        'Cache-Control': `public, max-age=${CACHE_DURATION_SECONDS}`,
+      },
+    })
   } catch (error) {
     console.error('Monte Carlo simulation failed:', error)
-    console.error(
-      'Error details:',
-      error instanceof Error ? error.message : error
-    )
     return NextResponse.json(
       { error: 'Failed to generate Monte Carlo simulation' },
       { status: 500 }

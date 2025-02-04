@@ -1,15 +1,28 @@
-import { unstable_cache } from 'next/cache'
 import { format, fromUnixTime } from 'date-fns'
+
+import { CACHE_DURATION_SECONDS } from '@/config'
 
 export interface BitcoinPricePoint {
   date: string
   price: number
 }
 
-async function fetchBitcoinPriceData(): Promise<BitcoinPricePoint[]> {
+export async function fetchBitcoinPriceData(): Promise<BitcoinPricePoint[]> {
+  console.log('Attempting to fetch Bitcoin price data...')
+
   const response = await fetch(
-    'https://api.blockchain.info/charts/market-price?timespan=all&sampled=false&format=json'
+    'https://api.blockchain.info/charts/market-price?timespan=all&sampled=false&format=json',
+    {
+      cache: 'force-cache', // This should work in both dev and prod
+      next: {
+        revalidate: CACHE_DURATION_SECONDS,
+      },
+    }
   )
+
+  console.log('Response Status:', response.status)
+  console.log('Response Cache Status:', response.headers.get('x-vercel-cache'))
+  console.log('Response Cache-Control:', response.headers.get('cache-control'))
 
   const data = await response.json()
 
@@ -22,14 +35,3 @@ async function fetchBitcoinPriceData(): Promise<BitcoinPricePoint[]> {
     price: y,
   }))
 }
-
-export const getCachedBitcoinPrice = unstable_cache(
-  async () => {
-    return await fetchBitcoinPriceData()
-  },
-  ['bitcoin-price-v2'],
-  {
-    revalidate: 43200, // 12 hours
-    tags: ['bitcoin-price-v2'],
-  }
-)
