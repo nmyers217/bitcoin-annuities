@@ -1,29 +1,39 @@
-'use client'
+import type { Metadata } from 'next'
 
-import { AnnuitiesCard } from '@/components/annuities-card/index'
-import { PortfolioChartCard } from '@/components/charts/portfolio-charts'
-import { PageHeader } from '@/components/page-header'
-import TradingViewWidget from '@/components/trading-view-widget'
-import { Card } from '@/components/ui/card'
+import { deserializeAnnuities } from '@/lib/url-state'
+import { TrackerPage } from './tracker-page'
 
-function PriceChartCard() {
-  return (
-    <Card className="h-[500px]">
-      <TradingViewWidget />
-    </Card>
-  )
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ annuities?: string }>
+}): Promise<Metadata> {
+  const awaitedParams = await searchParams
+  const annuitiesParam = awaitedParams.annuities
+
+  if (annuitiesParam) {
+    const annuities = deserializeAnnuities(annuitiesParam)
+
+    const title = `My Annuity Portfolio`
+    const description = `Check out my annuity portfolio of ${annuities.length.toLocaleString()} annuities`
+
+    return {
+      title,
+      description,
+      openGraph: {
+        title,
+        description,
+        images: [`/api/og?annuities=${annuitiesParam}`],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        images: [`/api/og?annuities=${annuitiesParam}`],
+      },
+    }
+  }
+
+  return {}
 }
-
-// Main Page Component
-export default function TrackerPage() {
-  return (
-    <div className="container mx-auto p-6">
-      <div className="space-y-6">
-        <PageHeader />
-        <PriceChartCard />
-        <PortfolioChartCard />
-        <AnnuitiesCard />
-      </div>
-    </div>
-  )
-}
+export default TrackerPage

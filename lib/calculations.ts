@@ -16,7 +16,7 @@ export function parsePortfolioDate(date: string | Date): Date {
     : parseISO(date)
 }
 
-function convertAmount(
+export function convertAmount(
   amount: number,
   fromCurrency: 'USD' | 'BTC',
   price: number
@@ -32,6 +32,22 @@ function convertAmount(
       btcAmount: amount,
     }
   }
+}
+
+export function calculateMonthlyPaymentUSD(
+  annuity: Annuity,
+  btcPrice: number
+): number {
+  const monthlyRate = annuity.amortizationRate / 12
+  const amounts = convertAmount(
+    annuity.principal,
+    annuity.principalCurrency,
+    btcPrice
+  )
+  return (
+    amounts.usdAmount *
+    (monthlyRate / (1 - Math.pow(1 + monthlyRate, -annuity.termMonths)))
+  )
 }
 
 function* dateWindowGenerator(
